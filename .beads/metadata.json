@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "lenticular_gen",
+  "project_id": "27339294-f9d6-4bad-9da0-f09218ba712c"
+}
