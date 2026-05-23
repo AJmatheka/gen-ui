@@ -3,215 +3,124 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lenticular Image Generator</title>
+  <title>genui</title>
   <style>
     :root {
-      color-scheme: light;
-      --bg: #f4f2ed;
-      --surface: #fffdf8;
-      --surface-2: #f8fafb;
-      --ink: #1b1d1f;
-      --muted: #69727d;
-      --line: #d8d4ca;
-      --line-strong: #b9b2a5;
-      --accent: #0b6f68;
-      --accent-dark: #07524d;
-      --accent-soft: #dff0ed;
-      --warm: #b6542e;
-      --focus: rgba(11, 111, 104, 0.2);
-      --shadow: 0 18px 40px rgba(48, 43, 33, 0.11);
+      color-scheme: dark;
+      --bg: #0f0f0f;
+      --panel: #1a1a1a;
+      --panel-2: #202124;
+      --line: #2a2a2a;
+      --line-strong: #3b3b3b;
+      --ink: #f5f5f5;
+      --muted: #a1a1aa;
+      --accent: #6ee7b7;
+      --accent-2: #f59e0b;
+      --danger: #fb7185;
+      --shadow: 0 22px 70px rgba(0, 0, 0, 0.35);
+      --checker-a: #222;
+      --checker-b: #181818;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
-      min-height: 140vh;
+      min-height: 100vh;
       background:
-        linear-gradient(#ded9cd 1px, transparent 1px),
-        linear-gradient(90deg, #ded9cd 1px, transparent 1px),
+        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px),
         var(--bg);
-      background-size: 28px 28px;
+      background-size: 32px 32px;
       color: var(--ink);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       line-height: 1.45;
     }
 
-    body::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      background: rgba(244, 242, 237, 0.72);
+    main {
+      width: min(1240px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 24px 0 48px;
     }
 
-    main {
-      position: relative;
-      width: min(1180px, calc(100% - 32px));
-      margin: 0 auto;
-      padding: 28px 0 52px;
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: end;
+      margin-bottom: 18px;
     }
 
     h1 {
-      margin: 0 0 16px;
-      font-size: clamp(1.35rem, 2.6vw, 2rem);
-      line-height: 1.05;
+      margin: 0;
+      font-size: clamp(2.2rem, 6vw, 5.5rem);
+      line-height: 0.9;
       letter-spacing: 0;
     }
 
-    h1::after {
-      content: "";
-      display: block;
-      width: 54px;
-      height: 4px;
-      margin-top: 12px;
-      background: var(--warm);
-      border-radius: 999px;
+    .deck {
+      max-width: 620px;
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 0.98rem;
     }
 
-    .uploads {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
+    .tabs, .toolbar, .actions, .layer-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
     }
 
-    .drop-zone {
-      min-height: 188px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--surface);
-      box-shadow: var(--shadow);
-      display: grid;
-      place-items: center;
-      overflow: hidden;
-      position: relative;
-      cursor: pointer;
-      transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    .tabs {
+      justify-content: flex-end;
+      min-width: 310px;
     }
 
-    .drop-zone::before {
-      content: "";
-      position: absolute;
-      inset: 10px;
-      border: 1px dashed var(--line-strong);
+    button, .file-button {
+      min-height: 40px;
+      border: 1px solid var(--line-strong);
       border-radius: 6px;
-      pointer-events: none;
+      padding: 8px 12px;
+      background: #161616;
+      color: var(--ink);
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      transition: border-color 140ms ease, background 140ms ease, color 140ms ease, transform 140ms ease;
     }
 
-    .drop-zone::after {
-      position: absolute;
-      top: 18px;
-      left: 18px;
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
-      background: var(--accent-soft);
-      color: var(--accent-dark);
-      font-weight: 900;
-      font-size: 0.86rem;
-    }
-
-    #zoneA::after {
-      content: "A";
-    }
-
-    #zoneB::after {
-      content: "B";
-    }
-
-    .drop-zone:hover,
-    .drop-zone.drag-over {
+    button:hover, .file-button:hover {
       border-color: var(--accent);
-      box-shadow: 0 0 0 4px var(--focus), var(--shadow);
       transform: translateY(-1px);
     }
 
-    .drop-zone input {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      opacity: 0;
-      pointer-events: none;
+    button.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: inset 0 -2px 0 var(--accent);
     }
 
-    .upload-empty,
-    .upload-filled {
-      width: 100%;
-      height: 100%;
-      display: grid;
-      place-items: center;
-      padding: 28px;
-      text-align: center;
-      position: relative;
-      z-index: 1;
+    button.primary, .file-button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #08110e;
     }
 
-    .upload-empty strong,
-    .upload-filled strong {
-      display: block;
-      margin-bottom: 5px;
-      font-size: 1rem;
+    button.danger {
+      border-color: rgba(251,113,133,0.55);
+      color: #fecdd3;
     }
 
-    .upload-empty span,
-    .upload-filled span {
-      color: var(--muted);
-      font-size: 0.9rem;
+    button:disabled {
+      opacity: 0.42;
+      cursor: not-allowed;
+      transform: none;
     }
 
-    .upload-filled {
-      grid-template-rows: 1fr auto;
-      gap: 10px;
-    }
-
-    .upload-filled img {
-      width: 100%;
-      height: 122px;
-      object-fit: contain;
-      border-radius: 6px;
-      background:
-        linear-gradient(45deg, #e9ecef 25%, transparent 25%),
-        linear-gradient(-45deg, #e9ecef 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, #e9ecef 75%),
-        linear-gradient(-45deg, transparent 75%, #e9ecef 75%),
-        #f7f8f9;
-      background-size: 18px 18px;
-      background-position: 0 0, 0 9px, 9px -9px, -9px 0;
-      border: 1px solid #e0e4e8;
-    }
-
-    .controls {
-      margin-top: 14px;
-      padding: 14px;
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      box-shadow: var(--shadow);
-      display: grid;
-      grid-template-columns: 1.15fr 0.9fr 1fr 1fr;
-      gap: 12px;
-      align-items: end;
-    }
-
-    label {
-      display: grid;
-      gap: 7px;
-      min-width: 0;
-      font-size: 0.78rem;
-      font-weight: 800;
-      color: #33383d;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-
-    input,
-    select,
-    button {
+    input, select, textarea {
       font: inherit;
+      color: var(--ink);
     }
 
     input[type="range"] {
@@ -219,207 +128,406 @@
       accent-color: var(--accent);
     }
 
-    input[type="number"],
-    select {
+    input[type="number"], input[type="text"], select, textarea {
       width: 100%;
-      min-height: 40px;
-      border: 1px solid var(--line);
+      border: 1px solid var(--line-strong);
       border-radius: 6px;
-      padding: 8px 10px;
-      background: var(--surface-2);
+      background: #111;
       color: var(--ink);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+      padding: 8px 10px;
     }
 
-    input:disabled {
-      color: #98a0aa;
-      background: #ece8df;
-    }
-
-    input:focus,
-    select:focus,
-    button:focus-visible {
-      outline: 3px solid var(--focus);
+    input:focus, select:focus, textarea:focus, button:focus-visible {
+      outline: 3px solid rgba(110, 231, 183, 0.24);
       outline-offset: 1px;
       border-color: var(--accent);
     }
 
-    .strip-value {
-      color: var(--warm);
-      font-weight: 900;
-      text-transform: none;
-      letter-spacing: 0;
+    label {
+      display: grid;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      min-width: 0;
     }
 
-    .custom-size {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
+    .tool {
+      display: none;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(26,26,26,0.88);
+      box-shadow: var(--shadow);
+      overflow: hidden;
     }
 
-    .preview-wrap {
-      margin-top: 18px;
-      display: grid;
+    .tool.active { display: block; }
+
+    .toolbar {
+      min-height: 58px;
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      background: #141414;
+    }
+
+    .file-button {
+      position: relative;
+      overflow: hidden;
+      display: inline-grid;
       place-items: center;
     }
 
-    .canvas-shell {
+    .file-button input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      min-height: 620px;
+    }
+
+    .stage {
+      min-width: 0;
+      padding: 14px;
+      border-right: 1px solid var(--line);
+      display: grid;
+      align-content: start;
+      gap: 12px;
+    }
+
+    .panel {
+      padding: 14px;
+      background: var(--panel);
+      min-width: 0;
+    }
+
+    .panel h2 {
+      margin: 0 0 12px;
+      font-size: 0.92rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .drop-target, .canvas-shell, .parallax-stage {
       width: 100%;
-      background: #202326;
-      border: 1px solid #111416;
+      border: 1px solid var(--line-strong);
       border-radius: 8px;
-      box-shadow: 0 24px 60px rgba(22, 23, 24, 0.24);
-      padding: 12px;
+      background-color: var(--checker-b);
+      background-image:
+        linear-gradient(45deg, var(--checker-a) 25%, transparent 25%),
+        linear-gradient(-45deg, var(--checker-a) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, var(--checker-a) 75%),
+        linear-gradient(-45deg, transparent 75%, var(--checker-a) 75%);
+      background-size: 24px 24px;
+      background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+    }
+
+    .drop-target {
+      min-height: 220px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 28px;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .drop-target.drag-over {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(110, 231, 183, 0.16);
+    }
+
+    .drop-target strong {
+      display: block;
+      color: var(--ink);
+      margin-bottom: 4px;
     }
 
     canvas {
       display: block;
       width: 100%;
-      max-height: 72vh;
-      margin: 0 auto;
-      border-radius: 6px;
-      background: #e9edf3;
+      max-height: 68vh;
       object-fit: contain;
-    }
-
-    .actions {
-      margin-top: 14px;
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    button {
-      min-height: 42px;
-      border: 1px solid var(--accent);
+      background: #101010;
       border-radius: 6px;
-      padding: 9px 14px;
-      background: var(--accent);
-      color: #fff;
-      font-weight: 850;
-      cursor: pointer;
-      transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
     }
 
-    button.secondary {
-      background: var(--surface);
-      color: var(--accent-dark);
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      padding: 12px;
+      border-top: 1px solid var(--line);
+      background: #141414;
     }
 
-    button:hover {
-      background: var(--accent-dark);
-      border-color: var(--accent-dark);
-      transform: translateY(-1px);
-    }
-
-    button.secondary:hover {
-      color: #fff;
-    }
-
-    button:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .status {
+    .status, .hint, .warn {
       min-height: 22px;
-      margin-top: 10px;
-      text-align: center;
+      margin: 0;
       color: var(--muted);
       font-size: 0.9rem;
     }
 
-    @media (max-width: 900px) {
-      main {
-        width: min(100% - 22px, 1180px);
-        padding-top: 18px;
+    .warn { color: #fbbf24; }
+
+    .parallax-shell {
+      width: 100%;
+      max-width: 100%;
+    }
+
+    .parallax-stage {
+      position: relative;
+      overflow: hidden;
+      min-height: 320px;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .parallax-stage.empty {
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      text-align: center;
+      padding: 28px;
+    }
+
+    .base-img, .parallax-layer {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .base-img {
+      object-fit: fill;
+      pointer-events: none;
+    }
+
+    .parallax-layer {
+      pointer-events: none;
+      background-repeat: no-repeat;
+      will-change: transform;
+      transition: transform 0.1s ease-out;
+    }
+
+    .selection, .draw-rect {
+      position: absolute;
+      border: 2px solid currentColor;
+      background: color-mix(in srgb, currentColor 24%, transparent);
+      pointer-events: none;
+      border-radius: 3px;
+    }
+
+    .selection span {
+      position: absolute;
+      top: -25px;
+      left: -2px;
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      background: #080808;
+      color: var(--ink);
+      border: 1px solid currentColor;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font: 800 0.72rem ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    .draw-rect {
+      border-style: dashed;
+      color: var(--accent);
+      z-index: 1000;
+    }
+
+    .layers-list {
+      display: grid;
+      gap: 10px;
+      max-height: 430px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .layer-card {
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      padding: 10px;
+      background: #121212;
+      display: grid;
+      gap: 9px;
+    }
+
+    .layer-head {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr) auto auto auto;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--c);
+      box-shadow: 0 0 0 2px rgba(255,255,255,0.12);
+    }
+
+    .icon-btn {
+      min-height: 30px;
+      width: 30px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+    }
+
+    .mini-row {
+      display: grid;
+      grid-template-columns: 1fr 50px;
+      gap: 8px;
+      align-items: center;
+      color: var(--muted);
+      font: 750 0.78rem ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    .check-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 0.86rem;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    .embed-box {
+      margin-top: 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    textarea {
+      min-height: 132px;
+      resize: vertical;
+      font: 0.78rem ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    .two-up {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 940px) {
+      header {
+        display: grid;
+        align-items: start;
       }
 
-      .uploads,
-      .controls {
-        grid-template-columns: 1fr;
-      }
+      .tabs { justify-content: start; min-width: 0; }
+      .workspace { grid-template-columns: 1fr; }
+      .stage { border-right: 0; border-bottom: 1px solid var(--line); }
+      .control-grid, .two-up { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <main>
-    <h1>Lenticular Image Generator</h1>
+    <header>
+      <div>
+        <h1>genui</h1>
+        <p class="deck">Small browser tools for generated visuals: lenticular interlaces, parallax layers, and exportable embeds.</p>
+      </div>
+      <nav class="tabs" aria-label="Tools">
+        <button class="tab active" data-tool="lenticular" type="button">Lenticular</button>
+        <button class="tab" data-tool="parallax" type="button">Parallax Layers</button>
+      </nav>
+    </header>
 
-    <section class="uploads" aria-label="Image uploads">
-      <label class="drop-zone" id="zoneA">
-        <input id="fileA" type="file" accept="image/*">
-        <span class="upload-empty" id="emptyA">
-          <span>
-            <strong>Image A</strong>
-            <span>Drop image or click to browse</span>
-          </span>
-        </span>
-      </label>
-
-      <label class="drop-zone" id="zoneB">
-        <input id="fileB" type="file" accept="image/*">
-        <span class="upload-empty" id="emptyB">
-          <span>
-            <strong>Image B</strong>
-            <span>Drop image or click to browse</span>
-          </span>
-        </span>
-      </label>
-    </section>
-
-    <section class="controls" aria-label="Generator controls">
-      <label>
-        Strip width <span class="strip-value" id="stripReadout">10px</span>
-        <input id="stripWidth" type="range" min="2" max="50" value="10">
-      </label>
-
-      <label>
-        Output size
-        <select id="sizePreset">
-          <option value="800x600">800x600</option>
-          <option value="1200x800">1200x800</option>
-          <option value="1600x900">1600x900</option>
-          <option value="custom">Custom</option>
-        </select>
-      </label>
-
-      <label>
-        Custom size
-        <span class="custom-size">
-          <input id="customWidth" type="number" min="100" max="4000" step="10" value="800" aria-label="Custom width" disabled>
-          <input id="customHeight" type="number" min="100" max="4000" step="10" value="600" aria-label="Custom height" disabled>
-        </span>
-      </label>
-
-      <label>
-        Interaction mode
-        <select id="mode">
-          <option value="hover">Hover</option>
-          <option value="auto">Auto-animate</option>
-          <option value="scroll">Scroll-based</option>
-          <option value="static">Static export</option>
-        </select>
-      </label>
-    </section>
-
-    <section class="preview-wrap" aria-label="Canvas preview">
-      <div class="canvas-shell">
-        <canvas id="output" width="800" height="600"></canvas>
+    <section id="lenticularTool" class="tool active" aria-label="Lenticular generator">
+      <div class="toolbar">
+        <label class="file-button primary">Upload A<input id="fileA" type="file" accept="image/*"></label>
+        <label class="file-button primary">Upload B<input id="fileB" type="file" accept="image/*"></label>
+        <button id="lenticularDownload" type="button" disabled>Download PNG</button>
+        <button id="lenticularCopy" type="button" disabled>Copy Embed Code</button>
+        <p id="lenticularStatus" class="status" role="status" aria-live="polite"></p>
+      </div>
+      <div class="stage">
+        <div class="two-up">
+          <label id="zoneA" class="drop-target"><span><strong>Image A</strong>Drop or click Upload A</span></label>
+          <label id="zoneB" class="drop-target"><span><strong>Image B</strong>Drop or click Upload B</span></label>
+        </div>
+        <div class="canvas-shell">
+          <canvas id="lenticularCanvas" width="800" height="600"></canvas>
+        </div>
+      </div>
+      <div class="control-grid">
+        <label>Strip width <span id="stripReadout">10px</span><input id="stripWidth" type="range" min="2" max="50" value="10"></label>
+        <label>Output size <select id="sizePreset"><option value="800x600">800x600</option><option value="1200x800">1200x800</option><option value="1600x900">1600x900</option><option value="custom">Custom</option></select></label>
+        <label>Custom width <input id="customWidth" type="number" min="100" max="4000" step="10" value="800" disabled></label>
+        <label>Custom height <input id="customHeight" type="number" min="100" max="4000" step="10" value="600" disabled></label>
       </div>
     </section>
 
-    <section class="actions" aria-label="Export actions">
-      <button id="downloadBtn" type="button" disabled>Download PNG</button>
-      <button id="copyBtn" class="secondary" type="button" disabled>Copy HTML snippet</button>
+    <section id="parallaxTool" class="tool" aria-label="Image parallax editor">
+      <div class="toolbar">
+        <label class="file-button primary">Upload Image<input id="parallaxFile" type="file" accept="image/jpeg,image/png,image/webp"></label>
+        <button id="selectMode" class="active" type="button">Select Mode</button>
+        <button id="previewMode" type="button">Preview</button>
+        <button id="exportParallax" type="button" disabled>Copy Embed Code</button>
+        <p id="parallaxStatus" class="status" role="status" aria-live="polite"></p>
+      </div>
+      <div class="workspace">
+        <div class="stage">
+          <div id="mobileNotice" class="warn hidden">Selection needs desktop pointer input. Preview still works on mobile.</div>
+          <div class="parallax-shell">
+            <div id="parallaxStage" class="parallax-stage empty">
+              <span><strong>Drop image or use Upload Image</strong><br>Draw rectangles over regions to create depth layers.</span>
+            </div>
+          </div>
+          <div class="embed-box">
+            <label>Generated embed snippet<textarea id="embedOutput" readonly placeholder="Exported HTML appears here."></textarea></label>
+            <p id="sizeWarning" class="warn"></p>
+          </div>
+        </div>
+        <aside class="panel">
+          <h2>Layers Panel</h2>
+          <div id="layersList" class="layers-list"></div>
+          <div class="layer-actions" style="margin-top: 12px;">
+            <button id="addWholeLayer" type="button" disabled>+ Add Full Layer</button>
+            <button id="clearLayers" class="danger" type="button" disabled>Clear</button>
+          </div>
+          <div style="display:grid;gap:12px;margin-top:16px;">
+            <label>Scroll Simulate <span id="scrollReadout">0</span><input id="scrollSim" type="range" min="-300" max="300" value="0"></label>
+            <p class="hint">Top layer in list renders in front. Overlaps allowed. Small selections under 20x20px reject.</p>
+          </div>
+        </aside>
+      </div>
     </section>
-    <p class="status" id="status" role="status" aria-live="polite"></p>
   </main>
 
   <script>
-    const state = {
+    const $ = id => document.getElementById(id);
+    const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+    const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+
+    document.querySelectorAll(".tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach(item => item.classList.toggle("active", item === tab));
+        $("lenticularTool").classList.toggle("active", tab.dataset.tool === "lenticular");
+        $("parallaxTool").classList.toggle("active", tab.dataset.tool === "parallax");
+      });
+    });
+
+    const lenticular = {
       imageA: null,
       imageB: null,
       dataA: "",
@@ -430,76 +538,42 @@
       targetOffset: 0,
       easedOffset: 0,
       hoverX: 0,
-      raf: null,
       scaledA: document.createElement("canvas"),
       scaledB: document.createElement("canvas")
     };
 
-    const els = {
-      fileA: document.getElementById("fileA"),
-      fileB: document.getElementById("fileB"),
-      zoneA: document.getElementById("zoneA"),
-      zoneB: document.getElementById("zoneB"),
-      emptyA: document.getElementById("emptyA"),
-      emptyB: document.getElementById("emptyB"),
-      stripWidth: document.getElementById("stripWidth"),
-      stripReadout: document.getElementById("stripReadout"),
-      sizePreset: document.getElementById("sizePreset"),
-      customWidth: document.getElementById("customWidth"),
-      customHeight: document.getElementById("customHeight"),
-      mode: document.getElementById("mode"),
-      canvas: document.getElementById("output"),
-      downloadBtn: document.getElementById("downloadBtn"),
-      copyBtn: document.getElementById("copyBtn"),
-      status: document.getElementById("status")
-    };
+    const lCanvas = $("lenticularCanvas");
+    const lCtx = lCanvas.getContext("2d");
 
-    const ctx = els.canvas.getContext("2d");
+    function setStatus(el, message) {
+      el.textContent = message;
+      clearTimeout(el.timer);
+      el.timer = setTimeout(() => { el.textContent = ""; }, 2800);
+    }
 
-    function loadImageFromFile(file, slot) {
+    function readImage(file, done) {
       if (!file || !file.type.startsWith("image/")) return;
       const reader = new FileReader();
       reader.onload = () => {
         const img = new Image();
-        img.onload = () => {
-          state[slot === "A" ? "imageA" : "imageB"] = img;
-          state[slot === "A" ? "dataA" : "dataB"] = reader.result;
-          updateUploadPreview(slot, img, file.name);
-          prepareScaledImages();
-          updateButtons();
-          render();
-        };
+        img.onload = () => done(img, reader.result, file);
         img.src = reader.result;
       };
       reader.readAsDataURL(file);
     }
 
-    function updateUploadPreview(slot, img, name) {
-      const target = slot === "A" ? els.emptyA : els.emptyB;
-      target.className = "upload-filled";
-      target.innerHTML = "";
-
-      const thumb = document.createElement("img");
-      thumb.src = img.src;
-      thumb.alt = `${slot} preview`;
-
-      const caption = document.createElement("span");
-      caption.innerHTML = `<strong>Image ${slot}</strong><span>${escapeHtml(name)}</span>`;
-
-      target.append(thumb, caption);
+    function loadLenticular(file, slot) {
+      readImage(file, (img, data, original) => {
+        lenticular[slot === "A" ? "imageA" : "imageB"] = img;
+        lenticular[slot === "A" ? "dataA" : "dataB"] = data;
+        $(slot === "A" ? "zoneA" : "zoneB").innerHTML = `<span><strong>Image ${slot}</strong>${escapeHtml(original.name)}</span>`;
+        prepareLenticular();
+        updateLenticularButtons();
+        renderLenticular();
+      });
     }
 
-    function escapeHtml(value) {
-      return String(value).replace(/[&<>"']/g, char => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-      }[char]));
-    }
-
-    function bindDrop(zone, input, slot) {
+    function bindDrop(zone, handler) {
       zone.addEventListener("dragover", event => {
         event.preventDefault();
         zone.classList.add("drag-over");
@@ -508,195 +582,449 @@
       zone.addEventListener("drop", event => {
         event.preventDefault();
         zone.classList.remove("drag-over");
-        loadImageFromFile(event.dataTransfer.files[0], slot);
+        handler(event.dataTransfer.files[0]);
       });
-      input.addEventListener("change", () => loadImageFromFile(input.files[0], slot));
     }
 
-    function updateCanvasSize() {
-      const preset = els.sizePreset.value;
-      if (preset === "custom") {
-        state.width = clamp(parseInt(els.customWidth.value, 10) || 800, 100, 4000);
-        state.height = clamp(parseInt(els.customHeight.value, 10) || 600, 100, 4000);
+    function updateLenticularSize() {
+      if ($("sizePreset").value === "custom") {
+        lenticular.width = clamp(parseInt($("customWidth").value, 10) || 800, 100, 4000);
+        lenticular.height = clamp(parseInt($("customHeight").value, 10) || 600, 100, 4000);
       } else {
-        const [width, height] = preset.split("x").map(Number);
-        state.width = width;
-        state.height = height;
-        els.customWidth.value = width;
-        els.customHeight.value = height;
+        [lenticular.width, lenticular.height] = $("sizePreset").value.split("x").map(Number);
+        $("customWidth").value = lenticular.width;
+        $("customHeight").value = lenticular.height;
       }
-
-      els.canvas.width = state.width;
-      els.canvas.height = state.height;
-      els.canvas.style.maxWidth = `${state.width}px`;
-      prepareScaledImages();
-      render();
+      lCanvas.width = lenticular.width;
+      lCanvas.height = lenticular.height;
+      lCanvas.style.maxWidth = `${lenticular.width}px`;
+      prepareLenticular();
+      renderLenticular();
     }
 
-    function prepareScaledImages() {
-      if (!state.imageA || !state.imageB) return;
-      scaleImageToCanvas(state.imageA, state.scaledA);
-      scaleImageToCanvas(state.imageB, state.scaledB);
-    }
-
-    function scaleImageToCanvas(img, canvas) {
-      canvas.width = state.width;
-      canvas.height = state.height;
-      const localCtx = canvas.getContext("2d");
-      localCtx.clearRect(0, 0, state.width, state.height);
-
+    function scaleImageToCanvas(img, out, width, height) {
+      out.width = width;
+      out.height = height;
+      const ctx = out.getContext("2d");
       const imgRatio = img.naturalWidth / img.naturalHeight;
-      const canvasRatio = state.width / state.height;
-      let drawWidth = state.width;
-      let drawHeight = state.height;
-      let dx = 0;
-      let dy = 0;
-
+      const canvasRatio = width / height;
+      let w = width, h = height, x = 0, y = 0;
       if (imgRatio > canvasRatio) {
-        drawHeight = state.height;
-        drawWidth = drawHeight * imgRatio;
-        dx = (state.width - drawWidth) / 2;
+        h = height;
+        w = h * imgRatio;
+        x = (width - w) / 2;
       } else {
-        drawWidth = state.width;
-        drawHeight = drawWidth / imgRatio;
-        dy = (state.height - drawHeight) / 2;
+        w = width;
+        h = w / imgRatio;
+        y = (height - h) / 2;
       }
-
-      localCtx.drawImage(img, dx, dy, drawWidth, drawHeight);
+      ctx.clearRect(0, 0, width, height);
+      ctx.drawImage(img, x, y, w, h);
     }
 
-    function render() {
-      ctx.clearRect(0, 0, state.width, state.height);
+    function prepareLenticular() {
+      if (!lenticular.imageA || !lenticular.imageB) return;
+      scaleImageToCanvas(lenticular.imageA, lenticular.scaledA, lenticular.width, lenticular.height);
+      scaleImageToCanvas(lenticular.imageB, lenticular.scaledB, lenticular.width, lenticular.height);
+    }
 
-      if (!state.imageA || !state.imageB) {
-        drawPlaceholder();
+    function renderLenticular() {
+      lCtx.clearRect(0, 0, lenticular.width, lenticular.height);
+      if (!lenticular.imageA || !lenticular.imageB) {
+        lCtx.fillStyle = "#101010";
+        lCtx.fillRect(0, 0, lenticular.width, lenticular.height);
+        lCtx.fillStyle = "#a1a1aa";
+        lCtx.font = "800 26px system-ui, sans-serif";
+        lCtx.textAlign = "center";
+        lCtx.textBaseline = "middle";
+        lCtx.fillText("Upload two images", lenticular.width / 2, lenticular.height / 2);
         return;
       }
-
-      const strip = state.stripWidth;
+      const strip = lenticular.stripWidth;
       const cycle = strip * 2;
-      const offset = els.mode.value === "static" ? 0 : state.easedOffset;
-
-      for (let x = -cycle; x < state.width + cycle; x += cycle) {
-        drawStrip(state.scaledA, x + offset, strip);
-        drawStrip(state.scaledB, x + strip + offset, strip);
+      for (let x = -cycle; x < lenticular.width + cycle; x += cycle) {
+        drawLenticularStrip(lenticular.scaledA, x + lenticular.easedOffset, strip);
+        drawLenticularStrip(lenticular.scaledB, x + strip + lenticular.easedOffset, strip);
       }
     }
 
-    function drawStrip(source, dx, strip) {
-      const sx = Math.max(0, Math.min(state.width, dx));
-      const visibleWidth = Math.max(0, Math.min(dx + strip, state.width) - sx);
-      if (visibleWidth <= 0) return;
-
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(sx, 0, visibleWidth, state.height);
-      ctx.clip();
-      ctx.drawImage(source, sx, 0, visibleWidth, state.height, sx, 0, visibleWidth, state.height);
-      ctx.restore();
+    function drawLenticularStrip(source, dx, strip) {
+      const sx = Math.max(0, Math.min(lenticular.width, dx));
+      const visible = Math.max(0, Math.min(dx + strip, lenticular.width) - sx);
+      if (!visible) return;
+      lCtx.drawImage(source, sx, 0, visible, lenticular.height, sx, 0, visible, lenticular.height);
     }
 
-    function drawPlaceholder() {
-      ctx.fillStyle = "#e9edf3";
-      ctx.fillRect(0, 0, state.width, state.height);
-      ctx.fillStyle = "#667085";
-      ctx.font = "700 28px Inter, system-ui, sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("Upload two images to preview", state.width / 2, state.height / 2);
+    function updateLenticularButtons() {
+      const ready = Boolean(lenticular.imageA && lenticular.imageB);
+      $("lenticularDownload").disabled = !ready;
+      $("lenticularCopy").disabled = !ready;
     }
 
-    function tick(time) {
-      const mode = els.mode.value;
-      if (mode === "hover") {
-        state.targetOffset = (state.hoverX / Math.max(1, state.width)) * state.stripWidth;
-      } else if (mode === "auto") {
-        state.targetOffset = ((Math.sin(time / 700) + 1) / 2) * state.stripWidth;
-      } else if (mode === "scroll") {
-        const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-        state.targetOffset = (window.scrollY / maxScroll) * state.stripWidth;
-      } else {
-        state.targetOffset = 0;
-      }
-
-      state.easedOffset += (state.targetOffset - state.easedOffset) * 0.16;
-      render();
-      state.raf = requestAnimationFrame(tick);
+    function buildLenticularSnippet() {
+      return `<!-- genui lenticular embed -->\n<div class="genui-lenticular" data-strip="${lenticular.stripWidth}" style="max-width:${lenticular.width}px;margin:0 auto;"><canvas width="${lenticular.width}" height="${lenticular.height}" style="width:100%;display:block;"></canvas></div>\n<script>(()=>{const r=document.currentScript.previousElementSibling,c=r.querySelector("canvas"),x=c.getContext("2d"),s=+r.dataset.strip||10,a=new Image(),b=new Image(),ca=document.createElement("canvas"),cb=document.createElement("canvas");let t=0,o=0;a.src="${lenticular.dataA}";b.src="${lenticular.dataB}";c.addEventListener("mousemove",e=>{const q=c.getBoundingClientRect();t=((e.clientX-q.left)/q.width)*s});function sc(i,d){d.width=c.width;d.height=c.height;const g=d.getContext("2d"),ir=i.naturalWidth/i.naturalHeight,cr=c.width/c.height;let w=c.width,h=c.height,px=0,py=0;if(ir>cr){h=c.height;w=h*ir;px=(c.width-w)/2}else{w=c.width;h=w/ir;py=(c.height-h)/2}g.drawImage(i,px,py,w,h)}function ds(i,p){const sx=Math.max(0,Math.min(c.width,p)),w=Math.max(0,Math.min(p+s,c.width)-sx);if(w)x.drawImage(i,sx,0,w,c.height,sx,0,w,c.height)}function fr(){o+=(t-o)*.16;x.clearRect(0,0,c.width,c.height);for(let p=-s*2;p<c.width+s*2;p+=s*2){ds(ca,p+o);ds(cb,p+s+o)}requestAnimationFrame(fr)}let n=0;function ok(){if(++n===2){sc(a,ca);sc(b,cb);fr()}}a.onload=ok;b.onload=ok})();<\/script>`;
     }
 
-    function updateButtons() {
-      const ready = Boolean(state.imageA && state.imageB);
-      els.downloadBtn.disabled = !ready;
-      els.copyBtn.disabled = !ready;
-    }
-
-    function downloadPng() {
-      render();
+    $("fileA").addEventListener("change", event => loadLenticular(event.target.files[0], "A"));
+    $("fileB").addEventListener("change", event => loadLenticular(event.target.files[0], "B"));
+    bindDrop($("zoneA"), file => loadLenticular(file, "A"));
+    bindDrop($("zoneB"), file => loadLenticular(file, "B"));
+    $("stripWidth").addEventListener("input", () => {
+      lenticular.stripWidth = Number($("stripWidth").value);
+      $("stripReadout").textContent = `${lenticular.stripWidth}px`;
+    });
+    $("sizePreset").addEventListener("change", () => {
+      const custom = $("sizePreset").value === "custom";
+      $("customWidth").disabled = !custom;
+      $("customHeight").disabled = !custom;
+      updateLenticularSize();
+    });
+    $("customWidth").addEventListener("input", updateLenticularSize);
+    $("customHeight").addEventListener("input", updateLenticularSize);
+    $("lenticularDownload").addEventListener("click", () => {
+      renderLenticular();
       const link = document.createElement("a");
-      link.download = "lenticular-interlace.png";
-      link.href = els.canvas.toDataURL("image/png");
+      link.download = "genui-lenticular.png";
+      link.href = lCanvas.toDataURL("image/png");
       link.click();
-    }
-
-    async function copySnippet() {
-      const snippet = buildSnippet();
+    });
+    $("lenticularCopy").addEventListener("click", async () => {
+      const snippet = buildLenticularSnippet();
       try {
         await navigator.clipboard.writeText(snippet);
-        setStatus("HTML snippet copied.");
-      } catch (error) {
-        setStatus("Clipboard blocked. Select generated snippet from browser devtools console.");
+        setStatus($("lenticularStatus"), "Embed code copied.");
+      } catch {
         console.log(snippet);
+        setStatus($("lenticularStatus"), "Clipboard blocked. Snippet logged to console.");
       }
-    }
-
-    function buildSnippet() {
-      return `<!-- Lenticular hover image -->\n<div class="lenticular-embed" data-strip="${state.stripWidth}" style="max-width:${state.width}px;margin:0 auto;">\n  <canvas width="${state.width}" height="${state.height}" style="width:100%;display:block;"></canvas>\n</div>\n<script>\n(() => {\n  const root = document.currentScript.previousElementSibling;\n  const canvas = root.querySelector("canvas");\n  const ctx = canvas.getContext("2d");\n  const strip = Number(root.dataset.strip) || 10;\n  const a = new Image();\n  const b = new Image();\n  const scaledA = document.createElement("canvas");\n  const scaledB = document.createElement("canvas");\n  let target = 0;\n  let offset = 0;\n  a.src = "${state.dataA}";\n  b.src = "${state.dataB}";\n  canvas.addEventListener("mousemove", event => {\n    const rect = canvas.getBoundingClientRect();\n    target = ((event.clientX - rect.left) / rect.width) * strip;\n  });\n  function scale(img, out) {\n    out.width = canvas.width;\n    out.height = canvas.height;\n    const c = out.getContext("2d");\n    const imgRatio = img.naturalWidth / img.naturalHeight;\n    const canvasRatio = canvas.width / canvas.height;\n    let w = canvas.width;\n    let h = canvas.height;\n    let x = 0;\n    let y = 0;\n    if (imgRatio > canvasRatio) {\n      h = canvas.height;\n      w = h * imgRatio;\n      x = (canvas.width - w) / 2;\n    } else {\n      w = canvas.width;\n      h = w / imgRatio;\n      y = (canvas.height - h) / 2;\n    }\n    c.clearRect(0, 0, canvas.width, canvas.height);\n    c.drawImage(img, x, y, w, h);\n  }\n  function drawStrip(img, x) {\n    const sx = Math.max(0, Math.min(canvas.width, x));\n    const w = Math.max(0, Math.min(x + strip, canvas.width) - sx);\n    if (!w) return;\n    ctx.save();\n    ctx.beginPath();\n    ctx.rect(sx, 0, w, canvas.height);\n    ctx.clip();\n    ctx.drawImage(img, sx, 0, w, canvas.height, sx, 0, w, canvas.height);\n    ctx.restore();\n  }\n  function draw() {\n    ctx.clearRect(0, 0, canvas.width, canvas.height);\n    for (let x = -strip * 2; x < canvas.width + strip * 2; x += strip * 2) {\n      drawStrip(scaledA, x + offset);\n      drawStrip(scaledB, x + strip + offset);\n    }\n  }\n  function frame() {\n    offset += (target - offset) * 0.16;\n    draw();\n    requestAnimationFrame(frame);\n  }\n  let loaded = 0;\n  function ready() {\n    loaded += 1;\n    if (loaded === 2) {\n      scale(a, scaledA);\n      scale(b, scaledB);\n      requestAnimationFrame(frame);\n    }\n  }\n  a.onload = ready;\n  b.onload = ready;\n})();\n<\/script>`;
-    }
-
-    function clamp(value, min, max) {
-      return Math.min(max, Math.max(min, value));
-    }
-
-    function setStatus(message) {
-      els.status.textContent = message;
-      window.clearTimeout(setStatus.timer);
-      setStatus.timer = window.setTimeout(() => {
-        els.status.textContent = "";
-      }, 2600);
-    }
-
-    bindDrop(els.zoneA, els.fileA, "A");
-    bindDrop(els.zoneB, els.fileB, "B");
-
-    els.stripWidth.addEventListener("input", () => {
-      state.stripWidth = Number(els.stripWidth.value);
-      els.stripReadout.textContent = `${state.stripWidth}px`;
-      state.targetOffset = clamp(state.targetOffset, 0, state.stripWidth);
-      render();
+    });
+    lCanvas.addEventListener("mousemove", event => {
+      const rect = lCanvas.getBoundingClientRect();
+      lenticular.hoverX = clamp((event.clientX - rect.left) / rect.width, 0, 1) * lenticular.width;
     });
 
-    els.sizePreset.addEventListener("change", () => {
-      const custom = els.sizePreset.value === "custom";
-      els.customWidth.disabled = !custom;
-      els.customHeight.disabled = !custom;
-      updateCanvasSize();
+    const palette = ["#fb7185", "#6ee7b7", "#fbbf24", "#a78bfa", "#38bdf8"];
+    const parallax = {
+      imageUrl: null,
+      fileName: "",
+      fileSize: 0,
+      imageNaturalWidth: 0,
+      imageNaturalHeight: 0,
+      layers: [],
+      mode: "select",
+      isDrawing: false,
+      drawStart: { x: 0, y: 0 },
+      mouse: { x: 0, y: 0 },
+      scrollOffset: 0,
+      orientation: { x: 0, y: 0 }
+    };
+
+    const pStage = $("parallaxStage");
+    const coarsePointer = matchMedia("(pointer: coarse)").matches;
+    $("mobileNotice").classList.toggle("hidden", !coarsePointer);
+
+    function stageScale() {
+      const rect = pStage.getBoundingClientRect();
+      return {
+        x: parallax.imageNaturalWidth / Math.max(1, rect.width),
+        y: parallax.imageNaturalHeight / Math.max(1, rect.height),
+        rect
+      };
+    }
+
+    function naturalToDisplay(layer) {
+      const rect = pStage.getBoundingClientRect();
+      return {
+        x: layer.x / parallax.imageNaturalWidth * rect.width,
+        y: layer.y / parallax.imageNaturalHeight * rect.height,
+        width: layer.width / parallax.imageNaturalWidth * rect.width,
+        height: layer.height / parallax.imageNaturalHeight * rect.height
+      };
+    }
+
+    function loadParallax(file) {
+      readImage(file, (img, data, original) => {
+        parallax.imageUrl = data;
+        parallax.fileName = original.name;
+        parallax.fileSize = original.size;
+        parallax.imageNaturalWidth = img.naturalWidth;
+        parallax.imageNaturalHeight = img.naturalHeight;
+        parallax.layers = [];
+        pStage.classList.remove("empty");
+        pStage.innerHTML = "";
+        pStage.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+        pStage.style.minHeight = "0";
+        const base = document.createElement("img");
+        base.className = "base-img";
+        base.src = data;
+        base.alt = "";
+        pStage.append(base);
+        setParallaxMode("select");
+        updateParallaxControls();
+        renderLayers();
+        setStatus($("parallaxStatus"), `${original.name} loaded.`);
+        updateSizeWarning();
+      });
+    }
+
+    function setParallaxMode(mode) {
+      parallax.mode = mode;
+      $("selectMode").classList.toggle("active", mode === "select");
+      $("previewMode").classList.toggle("active", mode === "preview");
+      renderLayers();
+    }
+
+    function addLayer(rect) {
+      const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random());
+      parallax.layers.unshift({
+        id,
+        name: `Layer ${parallax.layers.length + 1}`,
+        x: Math.round(rect.x),
+        y: Math.round(rect.y),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        depth: 0.5,
+        opacity: 0.9,
+        blurOnDepth: true,
+        color: palette[parallax.layers.length % palette.length]
+      });
+      renderLayers();
+      renderLayerPanel();
+      updateParallaxControls();
+    }
+
+    function renderLayers() {
+      if (!parallax.imageUrl) return;
+      pStage.querySelectorAll(".parallax-layer,.selection,.draw-rect").forEach(el => el.remove());
+      [...parallax.layers].reverse().forEach((layer, index) => {
+        const box = naturalToDisplay(layer);
+        const piece = document.createElement("div");
+        piece.className = "parallax-layer";
+        piece.dataset.id = layer.id;
+        piece.style.left = `${box.x}px`;
+        piece.style.top = `${box.y}px`;
+        piece.style.width = `${box.width}px`;
+        piece.style.height = `${box.height}px`;
+        piece.style.inset = "auto";
+        piece.style.backgroundImage = `url("${parallax.imageUrl}")`;
+        piece.style.backgroundSize = `${pStage.clientWidth}px ${pStage.clientHeight}px`;
+        piece.style.backgroundPosition = `-${box.x}px -${box.y}px`;
+        piece.style.opacity = layer.opacity;
+        piece.style.zIndex = String(20 + index);
+        piece.style.filter = layer.blurOnDepth && Math.abs(layer.depth) > 1 ? `blur(${Math.min(2, Math.abs(layer.depth) - 0.5)}px)` : "none";
+        pStage.append(piece);
+
+        if (parallax.mode === "select") {
+          const marker = document.createElement("div");
+          marker.className = "selection";
+          marker.style.left = `${box.x}px`;
+          marker.style.top = `${box.y}px`;
+          marker.style.width = `${box.width}px`;
+          marker.style.height = `${box.height}px`;
+          marker.style.color = layer.color;
+          marker.style.zIndex = String(100 + index);
+          marker.innerHTML = `<span>${escapeHtml(layer.name)}</span>`;
+          pStage.append(marker);
+        }
+      });
+      applyParallax();
+    }
+
+    function renderLayerPanel() {
+      const list = $("layersList");
+      list.innerHTML = "";
+      if (!parallax.layers.length) {
+        list.innerHTML = `<p class="hint">No layers yet. Draw rectangles on image.</p>`;
+        return;
+      }
+      parallax.layers.forEach((layer, index) => {
+        const card = document.createElement("div");
+        card.className = "layer-card";
+        card.innerHTML = `
+          <div class="layer-head">
+            <span class="swatch" style="--c:${layer.color}"></span>
+            <input type="text" value="${escapeHtml(layer.name)}" data-action="name" aria-label="Layer name">
+            <button class="icon-btn" type="button" data-action="up" title="Move up">↑</button>
+            <button class="icon-btn" type="button" data-action="down" title="Move down">↓</button>
+            <button class="icon-btn danger" type="button" data-action="delete" title="Delete">×</button>
+          </div>
+          <div class="mini-row"><label>Depth<input type="range" min="-2" max="2" step="0.1" value="${layer.depth}" data-action="depth"></label><span>${layer.depth.toFixed(1)}</span></div>
+          <div class="mini-row"><label>Opacity<input type="range" min="0.5" max="1" step="0.05" value="${layer.opacity}" data-action="opacity"></label><span>${Math.round(layer.opacity * 100)}%</span></div>
+          <label class="check-row"><input type="checkbox" data-action="blur" ${layer.blurOnDepth ? "checked" : ""}> Blur on depth</label>
+        `;
+        card.addEventListener("input", event => updateLayerFromControl(layer.id, event.target, card));
+        card.addEventListener("click", event => handleLayerButton(layer.id, event.target.dataset.action));
+        list.append(card);
+      });
+    }
+
+    function updateLayerFromControl(id, target, card) {
+      const layer = parallax.layers.find(item => item.id === id);
+      if (!layer) return;
+      if (target.dataset.action === "name") layer.name = target.value;
+      if (target.dataset.action === "depth") layer.depth = Number(target.value);
+      if (target.dataset.action === "opacity") layer.opacity = Number(target.value);
+      if (target.dataset.action === "blur") layer.blurOnDepth = target.checked;
+      const rows = card.querySelectorAll(".mini-row");
+      rows[0].lastElementChild.textContent = layer.depth.toFixed(1);
+      rows[1].lastElementChild.textContent = `${Math.round(layer.opacity * 100)}%`;
+      renderLayers();
+    }
+
+    function handleLayerButton(id, action) {
+      const index = parallax.layers.findIndex(item => item.id === id);
+      if (index < 0) return;
+      if (action === "delete") parallax.layers.splice(index, 1);
+      if (action === "up" && index > 0) [parallax.layers[index - 1], parallax.layers[index]] = [parallax.layers[index], parallax.layers[index - 1]];
+      if (action === "down" && index < parallax.layers.length - 1) [parallax.layers[index + 1], parallax.layers[index]] = [parallax.layers[index], parallax.layers[index + 1]];
+      renderLayers();
+      renderLayerPanel();
+      updateParallaxControls();
+    }
+
+    function applyParallax() {
+      const rect = pStage.getBoundingClientRect();
+      const maxShift = 28;
+      const sourceX = coarsePointer ? parallax.orientation.x : parallax.mouse.x;
+      const sourceY = coarsePointer ? parallax.orientation.y : parallax.mouse.y;
+      parallax.layers.forEach(layer => {
+        const el = pStage.querySelector(`.parallax-layer[data-id="${CSS.escape(layer.id)}"]`);
+        if (!el) return;
+        const active = parallax.mode === "preview";
+        const x = active ? sourceX * layer.depth * maxShift : 0;
+        const y = active ? (sourceY * layer.depth * maxShift) + (parallax.scrollOffset * layer.depth * 0.3) : 0;
+        el.style.transform = `translate(${x}px, ${y}px)`;
+        el.style.backgroundSize = `${rect.width}px ${rect.height}px`;
+      });
+    }
+
+    function updateParallaxControls() {
+      const hasImage = Boolean(parallax.imageUrl);
+      $("exportParallax").disabled = !hasImage;
+      $("addWholeLayer").disabled = !hasImage;
+      $("clearLayers").disabled = !parallax.layers.length;
+      renderLayerPanel();
+    }
+
+    function updateSizeWarning() {
+      $("sizeWarning").textContent = parallax.fileSize > 500 * 1024
+        ? "Image is over 500KB. Base64 embed may slow blog pages; host image separately for production."
+        : "";
+    }
+
+    function buildParallaxSnippet() {
+      const layers = parallax.layers.map(layer => ({
+        name: layer.name,
+        x: layer.x,
+        y: layer.y,
+        width: layer.width,
+        height: layer.height,
+        depth: layer.depth,
+        opacity: layer.opacity,
+        blurOnDepth: layer.blurOnDepth
+      }));
+      const image = parallax.imageUrl;
+      const width = parallax.imageNaturalWidth;
+      const height = parallax.imageNaturalHeight;
+      return `<!-- genui parallax image embed -->\n<div class="genui-parallax" style="position:relative;overflow:hidden;width:100%;max-width:${width}px;aspect-ratio:${width}/${height};margin:0 auto;background:#111;">\n  <img src="${image}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:fill;">\n</div>\n<script>(()=>{const root=document.currentScript.previousElementSibling,img=${JSON.stringify(image)},natural={w:${width},h:${height}},layers=${JSON.stringify(layers)};let mx=0,my=0,scroll=0;layers.slice().reverse().forEach((l,i)=>{const d=document.createElement("div");d.style.cssText="position:absolute;overflow:hidden;pointer-events:none;background-repeat:no-repeat;will-change:transform;transition:transform .1s ease-out;";d.dataset.i=i;root.append(d)});function draw(){const r=root.getBoundingClientRect();layers.slice().reverse().forEach((l,i)=>{const d=root.querySelector('[data-i="'+i+'"]'),x=l.x/natural.w*r.width,y=l.y/natural.h*r.height,w=l.width/natural.w*r.width,h=l.height/natural.h*r.height;d.style.left=x+"px";d.style.top=y+"px";d.style.width=w+"px";d.style.height=h+"px";d.style.backgroundImage='url("'+img+'")';d.style.backgroundSize=r.width+"px "+r.height+"px";d.style.backgroundPosition=-x+"px "+-y+"px";d.style.opacity=l.opacity;d.style.filter=l.blurOnDepth&&Math.abs(l.depth)>1?"blur("+Math.min(2,Math.abs(l.depth)-.5)+"px)":"none";d.style.transform="translate("+(mx*l.depth*28)+"px,"+((my*l.depth*28)+(scroll*l.depth*.3))+"px)"})}root.addEventListener("mousemove",e=>{const r=root.getBoundingClientRect();mx=((e.clientX-r.left)-r.width/2)/(r.width/2);my=((e.clientY-r.top)-r.height/2)/(r.height/2);draw()});addEventListener("scroll",()=>{scroll=scrollY;draw()},{passive:true});addEventListener("resize",draw);draw()})();<\/script>`;
+    }
+
+    $("parallaxFile").addEventListener("change", event => loadParallax(event.target.files[0]));
+    bindDrop(pStage, file => loadParallax(file));
+    $("selectMode").addEventListener("click", () => setParallaxMode("select"));
+    $("previewMode").addEventListener("click", () => setParallaxMode("preview"));
+    $("scrollSim").addEventListener("input", () => {
+      parallax.scrollOffset = Number($("scrollSim").value);
+      $("scrollReadout").textContent = String(parallax.scrollOffset);
+      applyParallax();
+    });
+    $("addWholeLayer").addEventListener("click", () => addLayer({ x: 0, y: 0, width: parallax.imageNaturalWidth, height: parallax.imageNaturalHeight }));
+    $("clearLayers").addEventListener("click", () => {
+      parallax.layers = [];
+      renderLayers();
+      updateParallaxControls();
+    });
+    $("exportParallax").addEventListener("click", async () => {
+      const snippet = buildParallaxSnippet();
+      $("embedOutput").value = snippet;
+      try {
+        await navigator.clipboard.writeText(snippet);
+        setStatus($("parallaxStatus"), "Embed code copied.");
+      } catch {
+        setStatus($("parallaxStatus"), "Snippet generated.");
+      }
+    });
+    pStage.addEventListener("pointerdown", event => {
+      if (!parallax.imageUrl || parallax.mode !== "select" || coarsePointer) return;
+      const scale = stageScale();
+      parallax.isDrawing = true;
+      parallax.drawStart = { x: (event.clientX - scale.rect.left) * scale.x, y: (event.clientY - scale.rect.top) * scale.y };
+      pStage.setPointerCapture(event.pointerId);
+    });
+    pStage.addEventListener("pointermove", event => {
+      if (!parallax.imageUrl) return;
+      const rect = pStage.getBoundingClientRect();
+      parallax.mouse.x = clamp(((event.clientX - rect.left) - rect.width / 2) / (rect.width / 2), -1, 1);
+      parallax.mouse.y = clamp(((event.clientY - rect.top) - rect.height / 2) / (rect.height / 2), -1, 1);
+      applyParallax();
+      if (!parallax.isDrawing) return;
+      const scale = stageScale();
+      const end = { x: (event.clientX - scale.rect.left) * scale.x, y: (event.clientY - scale.rect.top) * scale.y };
+      const natural = {
+        x: clamp(Math.min(parallax.drawStart.x, end.x), 0, parallax.imageNaturalWidth),
+        y: clamp(Math.min(parallax.drawStart.y, end.y), 0, parallax.imageNaturalHeight),
+        width: Math.abs(end.x - parallax.drawStart.x),
+        height: Math.abs(end.y - parallax.drawStart.y)
+      };
+      let draw = pStage.querySelector(".draw-rect");
+      if (!draw) {
+        draw = document.createElement("div");
+        draw.className = "draw-rect";
+        pStage.append(draw);
+      }
+      const box = naturalToDisplay(natural);
+      draw.style.left = `${box.x}px`;
+      draw.style.top = `${box.y}px`;
+      draw.style.width = `${box.width}px`;
+      draw.style.height = `${box.height}px`;
+    });
+    pStage.addEventListener("pointerup", event => {
+      if (!parallax.isDrawing) return;
+      parallax.isDrawing = false;
+      const draw = pStage.querySelector(".draw-rect");
+      if (draw) draw.remove();
+      const scale = stageScale();
+      const end = { x: (event.clientX - scale.rect.left) * scale.x, y: (event.clientY - scale.rect.top) * scale.y };
+      const rect = {
+        x: clamp(Math.min(parallax.drawStart.x, end.x), 0, parallax.imageNaturalWidth),
+        y: clamp(Math.min(parallax.drawStart.y, end.y), 0, parallax.imageNaturalHeight),
+        width: clamp(Math.abs(end.x - parallax.drawStart.x), 0, parallax.imageNaturalWidth),
+        height: clamp(Math.abs(end.y - parallax.drawStart.y), 0, parallax.imageNaturalHeight)
+      };
+      if (rect.width < 20 || rect.height < 20) {
+        setStatus($("parallaxStatus"), "Selection too small.");
+        return;
+      }
+      addLayer(rect);
+    });
+    window.addEventListener("resize", renderLayers);
+    window.addEventListener("deviceorientation", event => {
+      parallax.orientation.x = clamp((event.gamma || 0) / 30, -1, 1);
+      parallax.orientation.y = clamp((event.beta || 0) / 30, -1, 1);
+      applyParallax();
     });
 
-    els.customWidth.addEventListener("input", updateCanvasSize);
-    els.customHeight.addEventListener("input", updateCanvasSize);
-    els.mode.addEventListener("change", render);
-    els.downloadBtn.addEventListener("click", downloadPng);
-    els.copyBtn.addEventListener("click", copySnippet);
+    function lenticularFrame() {
+      lenticular.targetOffset = (lenticular.hoverX / Math.max(1, lenticular.width)) * lenticular.stripWidth;
+      lenticular.easedOffset += (lenticular.targetOffset - lenticular.easedOffset) * 0.16;
+      renderLenticular();
+      requestAnimationFrame(lenticularFrame);
+    }
 
-    els.canvas.addEventListener("mousemove", event => {
-      const rect = els.canvas.getBoundingClientRect();
-      const ratio = (event.clientX - rect.left) / rect.width;
-      state.hoverX = clamp(ratio, 0, 1) * state.width;
-    });
-
-    updateCanvasSize();
-    updateButtons();
-    state.raf = requestAnimationFrame(tick);
+    updateLenticularSize();
+    updateLenticularButtons();
+    updateParallaxControls();
+    requestAnimationFrame(lenticularFrame);
   </script>
 </body>
 </html>
