@@ -143,6 +143,12 @@ export function App() {
                 <button id="previewMode" type="button">
                   Preview
                 </button>
+                <button id="parallaxPng" type="button" disabled>
+                  Download PNG
+                </button>
+                <button id="parallaxPackage" type="button" disabled>
+                  Download ZIP
+                </button>
                 <button id="exportParallax" type="button" disabled>
                   Copy Embed
                 </button>

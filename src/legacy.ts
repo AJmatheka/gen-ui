@@ -1,6 +1,13 @@
 // @ts-nocheck
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import {
+  dataUrlToBlob,
+  downloadBlob,
+  downloadDataUrl,
+  packageAssets,
+  renderElementToPng,
+} from './utils/export';
 import { loadCanvasReadyImage } from './utils/image';
 
 window.gsap = gsap;
@@ -210,10 +217,7 @@ export function initLegacyApp() {
     $("customHeight").addEventListener("input", updateLenticularSize);
     $("lenticularDownload").addEventListener("click", () => {
       renderLenticular();
-      const link = document.createElement("a");
-      link.download = "genui-lenticular.png";
-      link.href = lCanvas.toDataURL("image/png");
-      link.click();
+      downloadDataUrl(lCanvas.toDataURL("image/png"), "genui-lenticular.png");
     });
     $("lenticularCopy").addEventListener("click", async () => {
       const snippet = buildLenticularSnippet();
@@ -430,6 +434,8 @@ export function initLegacyApp() {
     function updateParallaxControls() {
       const hasImage = Boolean(parallax.imageUrl);
       $("exportParallax").disabled = !hasImage;
+      $("parallaxPng").disabled = !hasImage;
+      $("parallaxPackage").disabled = !hasImage;
       $("addWholeLayer").disabled = !hasImage;
       $("clearLayers").disabled = !parallax.layers.length;
       renderLayerPanel();
@@ -458,6 +464,51 @@ export function initLegacyApp() {
       return `<!-- genui parallax image embed -->\n<div class="genui-parallax" style="position:relative;overflow:hidden;width:100%;max-width:${width}px;aspect-ratio:${width}/${height};margin:0 auto;background:#111;">\n  <img src="${image}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:fill;">\n</div>\n<script>(()=>{const root=document.currentScript.previousElementSibling,img=${JSON.stringify(image)},natural={w:${width},h:${height}},layers=${JSON.stringify(layers)};let mx=0,my=0,scroll=0;layers.slice().reverse().forEach((l,i)=>{const d=document.createElement("div");d.style.cssText="position:absolute;overflow:hidden;pointer-events:none;background-repeat:no-repeat;will-change:transform;transition:transform .1s ease-out;";d.dataset.i=i;root.append(d)});function draw(){const r=root.getBoundingClientRect();layers.slice().reverse().forEach((l,i)=>{const d=root.querySelector('[data-i="'+i+'"]'),x=l.x/natural.w*r.width,y=l.y/natural.h*r.height,w=l.width/natural.w*r.width,h=l.height/natural.h*r.height;d.style.left=x+"px";d.style.top=y+"px";d.style.width=w+"px";d.style.height=h+"px";d.style.backgroundImage='url("'+img+'")';d.style.backgroundSize=r.width+"px "+r.height+"px";d.style.backgroundPosition=-x+"px "+-y+"px";d.style.opacity=l.opacity;d.style.filter=l.blurOnDepth&&Math.abs(l.depth)>1?"blur("+Math.min(2,Math.abs(l.depth)-.5)+"px)":"none";d.style.transform="translate("+(mx*l.depth*28)+"px,"+((my*l.depth*28)+(scroll*l.depth*.3))+"px)"})}root.addEventListener("mousemove",e=>{const r=root.getBoundingClientRect();mx=((e.clientX-r.left)-r.width/2)/(r.width/2);my=((e.clientY-r.top)-r.height/2)/(r.height/2);draw()});addEventListener("scroll",()=>{scroll=scrollY;draw()},{passive:true});addEventListener("resize",draw);draw()})();<\/script>`;
     }
 
+    async function exportParallaxPng() {
+      setParallaxMode("preview");
+      applyParallax();
+      const dataUrl = await renderElementToPng(pStage);
+      downloadDataUrl(dataUrl, "genui-parallax.png");
+      setStatus($("parallaxStatus"), "PNG exported.");
+    }
+
+    async function exportParallaxPackage() {
+      setParallaxMode("preview");
+      applyParallax();
+
+      const pngDataUrl = await renderElementToPng(pStage);
+      const pngBlob = await dataUrlToBlob(pngDataUrl);
+      const snippet = buildParallaxSnippet();
+      const manifest = {
+        exportedAt: new Date().toISOString(),
+        background: {
+          fileName: parallax.fileName,
+          width: parallax.imageNaturalWidth,
+          height: parallax.imageNaturalHeight,
+        },
+        layers: parallax.layers.map(layer => ({
+          name: layer.name,
+          x: layer.x,
+          y: layer.y,
+          width: layer.width,
+          height: layer.height,
+          depth: layer.depth,
+          opacity: layer.opacity,
+          blurOnDepth: layer.blurOnDepth,
+        })),
+      };
+
+      const zip = await packageAssets([
+        { name: "preview.png", data: pngBlob },
+        { name: "embed.html", data: snippet },
+        { name: "project.json", data: JSON.stringify(manifest, null, 2) },
+      ]);
+
+      downloadBlob(zip, "genui-parallax.zip");
+      $("embedOutput").value = snippet;
+      setStatus($("parallaxStatus"), "ZIP exported.");
+    }
+
     $("parallaxFile").addEventListener("change", event => loadParallax(event.target.files[0]));
     bindDrop(pStage, file => loadParallax(file));
     $("selectMode").addEventListener("click", () => setParallaxMode("select"));
@@ -481,6 +532,22 @@ export function initLegacyApp() {
         setStatus($("parallaxStatus"), "Embed code copied.");
       } catch {
         setStatus($("parallaxStatus"), "Snippet generated.");
+      }
+    });
+    $("parallaxPng").addEventListener("click", async () => {
+      try {
+        await exportParallaxPng();
+      } catch (error) {
+        console.error(error);
+        setStatus($("parallaxStatus"), "PNG export failed.");
+      }
+    });
+    $("parallaxPackage").addEventListener("click", async () => {
+      try {
+        await exportParallaxPackage();
+      } catch (error) {
+        console.error(error);
+        setStatus($("parallaxStatus"), "ZIP export failed.");
       }
     });
     pStage.addEventListener("pointerdown", event => {
