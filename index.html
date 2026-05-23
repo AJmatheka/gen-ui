@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lenticular Image Generator</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #17202a;
+      --muted: #667085;
+      --line: #d9dee7;
+      --accent: #0f766e;
+      --accent-dark: #115e59;
+      --focus: rgba(15, 118, 110, 0.18);
+      --shadow: 0 14px 34px rgba(23, 32, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 140vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+
+    main {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 52px;
+    }
+
+    h1 {
+      margin: 0 0 18px;
+      font-size: clamp(1.5rem, 3vw, 2.4rem);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .uploads {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .drop-zone {
+      min-height: 210px;
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      position: relative;
+      cursor: pointer;
+      transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--focus), var(--shadow);
+    }
+
+    .drop-zone input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .upload-empty,
+    .upload-filled {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      text-align: center;
+    }
+
+    .upload-empty strong,
+    .upload-filled strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 1rem;
+    }
+
+    .upload-empty span,
+    .upload-filled span {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .upload-filled {
+      grid-template-rows: 1fr auto;
+      gap: 12px;
+    }
+
+    .upload-filled img {
+      width: 100%;
+      height: 140px;
+      object-fit: contain;
+      border-radius: 6px;
+      background: #eef1f5;
+    }
+
+    .controls {
+      margin-top: 16px;
+      padding: 16px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      align-items: end;
+    }
+
+    label {
+      display: grid;
+      gap: 7px;
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: #303946;
+    }
+
+    input,
+    select,
+    button {
+      font: inherit;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    input[type="number"],
+    select {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 9px 10px;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    input:focus,
+    select:focus,
+    button:focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 1px;
+      border-color: var(--accent);
+    }
+
+    .strip-value {
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .custom-size {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .preview-wrap {
+      margin-top: 20px;
+      display: grid;
+      place-items: center;
+    }
+
+    .canvas-shell {
+      width: 100%;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      max-height: 72vh;
+      margin: 0 auto;
+      border-radius: 6px;
+      background: #e9edf3;
+      object-fit: contain;
+    }
+
+    .actions {
+      margin-top: 16px;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      min-height: 42px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      padding: 9px 14px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 800;
+      cursor: pointer;
+      transition: background 140ms ease, border-color 140ms ease;
+    }
+
+    button.secondary {
+      background: #fff;
+      color: var(--accent-dark);
+    }
+
+    button:hover {
+      background: var(--accent-dark);
+      border-color: var(--accent-dark);
+    }
+
+    button.secondary:hover {
+      color: #fff;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .status {
+      min-height: 22px;
+      margin-top: 10px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 820px) {
+      main {
+        width: min(100% - 22px, 1120px);
+        padding-top: 18px;
+      }
+
+      .uploads,
+      .controls {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Lenticular Image Generator</h1>
+
+    <section class="uploads" aria-label="Image uploads">
+      <label class="drop-zone" id="zoneA">
+        <input id="fileA" type="file" accept="image/*">
+        <span class="upload-empty" id="emptyA">
+          <span>
+            <strong>Image A</strong>
+            <span>Drop image or click to browse</span>
+          </span>
+        </span>
+      </label>
+
+      <label class="drop-zone" id="zoneB">
+        <input id="fileB" type="file" accept="image/*">
+        <span class="upload-empty" id="emptyB">
+          <span>
+            <strong>Image B</strong>
+            <span>Drop image or click to browse</span>
+          </span>
+        </span>
+      </label>
+    </section>
+
+    <section class="controls" aria-label="Generator controls">
+      <label>
+        Strip width <span class="strip-value" id="stripReadout">10px</span>
+        <input id="stripWidth" type="range" min="2" max="50" value="10">
+      </label>
+
+      <label>
+        Output size
+        <select id="sizePreset">
+          <option value="800x600">800x600</option>
+          <option value="1200x800">1200x800</option>
+          <option value="1600x900">1600x900</option>
+          <option value="custom">Custom</option>
+        </select>
+      </label>
+
+      <label>
+        Custom size
+        <span class="custom-size">
+          <input id="customWidth" type="number" min="100" max="4000" step="10" value="800" aria-label="Custom width" disabled>
+          <input id="customHeight" type="number" min="100" max="4000" step="10" value="600" aria-label="Custom height" disabled>
+        </span>
+      </label>
+
+      <label>
+        Interaction mode
+        <select id="mode">
+          <option value="hover">Hover</option>
+          <option value="auto">Auto-animate</option>
+          <option value="scroll">Scroll-based</option>
+          <option value="static">Static export</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="preview-wrap" aria-label="Canvas preview">
+      <div class="canvas-shell">
+        <canvas id="output" width="800" height="600"></canvas>
+      </div>
+    </section>
+
+    <section class="actions" aria-label="Export actions">
+      <button id="downloadBtn" type="button" disabled>Download PNG</button>
+      <button id="copyBtn" class="secondary" type="button" disabled>Copy HTML snippet</button>
+    </section>
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+  </main>
+
+  <script>
+    const state = {
+      imageA: null,
+      imageB: null,
+      dataA: "",
+      dataB: "",
+      width: 800,
+      height: 600,
+      stripWidth: 10,
+      targetOffset: 0,
+      easedOffset: 0,
+      hoverX: 0,
+      raf: null,
+      scaledA: document.createElement("canvas"),
+      scaledB: document.createElement("canvas")
+    };
+
+    const els = {
+      fileA: document.getElementById("fileA"),
+      fileB: document.getElementById("fileB"),
+      zoneA: document.getElementById("zoneA"),
+      zoneB: document.getElementById("zoneB"),
+      emptyA: document.getElementById("emptyA"),
+      emptyB: document.getElementById("emptyB"),
+      stripWidth: document.getElementById("stripWidth"),
+      stripReadout: document.getElementById("stripReadout"),
+      sizePreset: document.getElementById("sizePreset"),
+      customWidth: document.getElementById("customWidth"),
+      customHeight: document.getElementById("customHeight"),
+      mode: document.getElementById("mode"),
+      canvas: document.getElementById("output"),
+      downloadBtn: document.getElementById("downloadBtn"),
+      copyBtn: document.getElementById("copyBtn"),
+      status: document.getElementById("status")
+    };
+
+    const ctx = els.canvas.getContext("2d");
+
+    function loadImageFromFile(file, slot) {
+      if (!file || !file.type.startsWith("image/")) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          state[slot === "A" ? "imageA" : "imageB"] = img;
+          state[slot === "A" ? "dataA" : "dataB"] = reader.result;
+          updateUploadPreview(slot, img, file.name);
+          prepareScaledImages();
+          updateButtons();
+          render();
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function updateUploadPreview(slot, img, name) {
+      const target = slot === "A" ? els.emptyA : els.emptyB;
+      target.className = "upload-filled";
+      target.innerHTML = "";
+
+      const thumb = document.createElement("img");
+      thumb.src = img.src;
+      thumb.alt = `${slot} preview`;
+
+      const caption = document.createElement("span");
+      caption.innerHTML = `<strong>Image ${slot}</strong><span>${escapeHtml(name)}</span>`;
+
+      target.append(thumb, caption);
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    function bindDrop(zone, input, slot) {
+      zone.addEventListener("dragover", event => {
+        event.preventDefault();
+        zone.classList.add("drag-over");
+      });
+      zone.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
+      zone.addEventListener("drop", event => {
+        event.preventDefault();
+        zone.classList.remove("drag-over");
+        loadImageFromFile(event.dataTransfer.files[0], slot);
+      });
+      input.addEventListener("change", () => loadImageFromFile(input.files[0], slot));
+    }
+
+    function updateCanvasSize() {
+      const preset = els.sizePreset.value;
+      if (preset === "custom") {
+        state.width = clamp(parseInt(els.customWidth.value, 10) || 800, 100, 4000);
+        state.height = clamp(parseInt(els.customHeight.value, 10) || 600, 100, 4000);
+      } else {
+        const [width, height] = preset.split("x").map(Number);
+        state.width = width;
+        state.height = height;
+        els.customWidth.value = width;
+        els.customHeight.value = height;
+      }
+
+      els.canvas.width = state.width;
+      els.canvas.height = state.height;
+      els.canvas.style.maxWidth = `${state.width}px`;
+      prepareScaledImages();
+      render();
+    }
+
+    function prepareScaledImages() {
+      if (!state.imageA || !state.imageB) return;
+      scaleImageToCanvas(state.imageA, state.scaledA);
+      scaleImageToCanvas(state.imageB, state.scaledB);
+    }
+
+    function scaleImageToCanvas(img, canvas) {
+      canvas.width = state.width;
+      canvas.height = state.height;
+      const localCtx = canvas.getContext("2d");
+      localCtx.clearRect(0, 0, state.width, state.height);
+
+      const imgRatio = img.naturalWidth / img.naturalHeight;
+      const canvasRatio = state.width / state.height;
+      let drawWidth = state.width;
+      let drawHeight = state.height;
+      let dx = 0;
+      let dy = 0;
+
+      if (imgRatio > canvasRatio) {
+        drawHeight = state.height;
+        drawWidth = drawHeight * imgRatio;
+        dx = (state.width - drawWidth) / 2;
+      } else {
+        drawWidth = state.width;
+        drawHeight = drawWidth / imgRatio;
+        dy = (state.height - drawHeight) / 2;
+      }
+
+      localCtx.drawImage(img, dx, dy, drawWidth, drawHeight);
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, state.width, state.height);
+
+      if (!state.imageA || !state.imageB) {
+        drawPlaceholder();
+        return;
+      }
+
+      const strip = state.stripWidth;
+      const cycle = strip * 2;
+      const offset = els.mode.value === "static" ? 0 : state.easedOffset;
+
+      for (let x = -cycle; x < state.width + cycle; x += cycle) {
+        drawStrip(state.scaledA, x + offset, strip);
+        drawStrip(state.scaledB, x + strip + offset, strip);
+      }
+    }
+
+    function drawStrip(source, dx, strip) {
+      const sx = Math.max(0, Math.min(state.width, dx));
+      const visibleWidth = Math.max(0, Math.min(dx + strip, state.width) - sx);
+      if (visibleWidth <= 0) return;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(sx, 0, visibleWidth, state.height);
+      ctx.clip();
+      ctx.drawImage(source, sx, 0, visibleWidth, state.height, sx, 0, visibleWidth, state.height);
+      ctx.restore();
+    }
+
+    function drawPlaceholder() {
+      ctx.fillStyle = "#e9edf3";
+      ctx.fillRect(0, 0, state.width, state.height);
+      ctx.fillStyle = "#667085";
+      ctx.font = "700 28px Inter, system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("Upload two images to preview", state.width / 2, state.height / 2);
+    }
+
+    function tick(time) {
+      const mode = els.mode.value;
+      if (mode === "hover") {
+        state.targetOffset = (state.hoverX / Math.max(1, state.width)) * state.stripWidth;
+      } else if (mode === "auto") {
+        state.targetOffset = ((Math.sin(time / 700) + 1) / 2) * state.stripWidth;
+      } else if (mode === "scroll") {
+        const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+        state.targetOffset = (window.scrollY / maxScroll) * state.stripWidth;
+      } else {
+        state.targetOffset = 0;
+      }
+
+      state.easedOffset += (state.targetOffset - state.easedOffset) * 0.16;
+      render();
+      state.raf = requestAnimationFrame(tick);
+    }
+
+    function updateButtons() {
+      const ready = Boolean(state.imageA && state.imageB);
+      els.downloadBtn.disabled = !ready;
+      els.copyBtn.disabled = !ready;
+    }
+
+    function downloadPng() {
+      render();
+      const link = document.createElement("a");
+      link.download = "lenticular-interlace.png";
+      link.href = els.canvas.toDataURL("image/png");
+      link.click();
+    }
+
+    async function copySnippet() {
+      const snippet = buildSnippet();
+      try {
+        await navigator.clipboard.writeText(snippet);
+        setStatus("HTML snippet copied.");
+      } catch (error) {
+        setStatus("Clipboard blocked. Select generated snippet from browser devtools console.");
+        console.log(snippet);
+      }
+    }
+
+    function buildSnippet() {
+      return `<!-- Lenticular hover image -->\n<div class="lenticular-embed" data-strip="${state.stripWidth}" style="max-width:${state.width}px;margin:0 auto;">\n  <canvas width="${state.width}" height="${state.height}" style="width:100%;display:block;"></canvas>\n</div>\n<script>\n(() => {\n  const root = document.currentScript.previousElementSibling;\n  const canvas = root.querySelector("canvas");\n  const ctx = canvas.getContext("2d");\n  const strip = Number(root.dataset.strip) || 10;\n  const a = new Image();\n  const b = new Image();\n  const scaledA = document.createElement("canvas");\n  const scaledB = document.createElement("canvas");\n  let target = 0;\n  let offset = 0;\n  a.src = "${state.dataA}";\n  b.src = "${state.dataB}";\n  canvas.addEventListener("mousemove", event => {\n    const rect = canvas.getBoundingClientRect();\n    target = ((event.clientX - rect.left) / rect.width) * strip;\n  });\n  function scale(img, out) {\n    out.width = canvas.width;\n    out.height = canvas.height;\n    const c = out.getContext("2d");\n    const imgRatio = img.naturalWidth / img.naturalHeight;\n    const canvasRatio = canvas.width / canvas.height;\n    let w = canvas.width;\n    let h = canvas.height;\n    let x = 0;\n    let y = 0;\n    if (imgRatio > canvasRatio) {\n      h = canvas.height;\n      w = h * imgRatio;\n      x = (canvas.width - w) / 2;\n    } else {\n      w = canvas.width;\n      h = w / imgRatio;\n      y = (canvas.height - h) / 2;\n    }\n    c.clearRect(0, 0, canvas.width, canvas.height);\n    c.drawImage(img, x, y, w, h);\n  }\n  function drawStrip(img, x) {\n    const sx = Math.max(0, Math.min(canvas.width, x));\n    const w = Math.max(0, Math.min(x + strip, canvas.width) - sx);\n    if (!w) return;\n    ctx.save();\n    ctx.beginPath();\n    ctx.rect(sx, 0, w, canvas.height);\n    ctx.clip();\n    ctx.drawImage(img, sx, 0, w, canvas.height, sx, 0, w, canvas.height);\n    ctx.restore();\n  }\n  function draw() {\n    ctx.clearRect(0, 0, canvas.width, canvas.height);\n    for (let x = -strip * 2; x < canvas.width + strip * 2; x += strip * 2) {\n      drawStrip(scaledA, x + offset);\n      drawStrip(scaledB, x + strip + offset);\n    }\n  }\n  function frame() {\n    offset += (target - offset) * 0.16;\n    draw();\n    requestAnimationFrame(frame);\n  }\n  let loaded = 0;\n  function ready() {\n    loaded += 1;\n    if (loaded === 2) {\n      scale(a, scaledA);\n      scale(b, scaledB);\n      requestAnimationFrame(frame);\n    }\n  }\n  a.onload = ready;\n  b.onload = ready;\n})();\n<\/script>`;
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function setStatus(message) {
+      els.status.textContent = message;
+      window.clearTimeout(setStatus.timer);
+      setStatus.timer = window.setTimeout(() => {
+        els.status.textContent = "";
+      }, 2600);
+    }
+
+    bindDrop(els.zoneA, els.fileA, "A");
+    bindDrop(els.zoneB, els.fileB, "B");
+
+    els.stripWidth.addEventListener("input", () => {
+      state.stripWidth = Number(els.stripWidth.value);
+      els.stripReadout.textContent = `${state.stripWidth}px`;
+      state.targetOffset = clamp(state.targetOffset, 0, state.stripWidth);
+      render();
+    });
+
+    els.sizePreset.addEventListener("change", () => {
+      const custom = els.sizePreset.value === "custom";
+      els.customWidth.disabled = !custom;
+      els.customHeight.disabled = !custom;
+      updateCanvasSize();
+    });
+
+    els.customWidth.addEventListener("input", updateCanvasSize);
+    els.customHeight.addEventListener("input", updateCanvasSize);
+    els.mode.addEventListener("change", render);
+    els.downloadBtn.addEventListener("click", downloadPng);
+    els.copyBtn.addEventListener("click", copySnippet);
+
+    els.canvas.addEventListener("mousemove", event => {
+      const rect = els.canvas.getBoundingClientRect();
+      const ratio = (event.clientX - rect.left) / rect.width;
+      state.hoverX = clamp(ratio, 0, 1) * state.width;
+    });
+
+    updateCanvasSize();
+    updateButtons();
+    state.raf = requestAnimationFrame(tick);
+  </script>
+</body>
+</html>
