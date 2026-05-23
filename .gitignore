@@ -3,3 +3,13 @@
 .dolt/
 *.db
 .beads-credential-key
+node_modules/
+dist/
+.worktrees/
+
+# Local/generated project files
+node_modules/
+dist/
+.worktrees/
+.agents/
+skills-lock.json
