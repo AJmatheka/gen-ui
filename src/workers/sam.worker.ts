@@ -30,6 +30,11 @@ export type SamWorkerRequest =
 
 export type SamWorkerResponse =
   | {
+      type: "status";
+      id?: string;
+      message: string;
+    }
+  | {
       type: "ready";
       id?: string;
       model: string;
@@ -80,17 +85,49 @@ type SamProcessorRuntime = Awaited<ReturnType<typeof AutoProcessor.from_pretrain
 };
 
 let runtimePromise: Promise<SamRuntime> | null = null;
+let activeModelId: string | null = null;
 
 const workerScope = self as unknown as {
   onmessage: ((event: MessageEvent<SamWorkerRequest>) => void) | null;
   postMessage(message: SamWorkerResponse, transfer?: Transferable[]): void;
 };
 
+function postStatus(message: string, id?: string): void {
+  workerScope.postMessage({
+    type: "status",
+    id,
+    message,
+  } satisfies SamWorkerResponse);
+}
+
 async function loadRuntime(modelId = DEFAULT_MODEL): Promise<SamRuntime> {
   if (!runtimePromise) {
+    activeModelId = modelId;
+    const progress_callback = (progress: { status?: string; file?: string; progress?: number }) => {
+      if (progress.status === "progress" && typeof progress.progress === "number") {
+        postStatus(`Loading SAM model ${Math.round(progress.progress)}%`);
+        return;
+      }
+
+      if (progress.status === "ready") {
+        postStatus("Preparing SAM model...");
+        return;
+      }
+
+      if (progress.file) {
+        postStatus(`Loading ${progress.file}`);
+      }
+    };
+
     runtimePromise = Promise.all([
-      SamModel.from_pretrained(modelId),
-      AutoProcessor.from_pretrained(modelId),
+      SamModel.from_pretrained(modelId, {
+        device: "wasm",
+        dtype: "q8",
+        progress_callback,
+      }),
+      AutoProcessor.from_pretrained(modelId, {
+        progress_callback,
+      }),
     ]).then(([model, processor]) => ({
       modelId,
       model,
@@ -167,6 +204,10 @@ workerScope.onmessage = async (event: MessageEvent<SamWorkerRequest>) => {
   const { data } = event;
 
   try {
+    if (data.type === "load" && activeModelId !== data.model) {
+      postStatus("Loading SAM model...", data.id);
+    }
+
     const runtime = await loadRuntime(data.model);
 
     if (data.type === "load") {
@@ -178,6 +219,7 @@ workerScope.onmessage = async (event: MessageEvent<SamWorkerRequest>) => {
       return;
     }
 
+    postStatus("Encoding image for SAM...", data.id);
     const response = await segmentImage(runtime, data.imageData, data.clicks);
     workerScope.postMessage(
       {
@@ -196,3 +238,19 @@ workerScope.onmessage = async (event: MessageEvent<SamWorkerRequest>) => {
     } satisfies SamWorkerResponse);
   }
 };
+
+self.addEventListener("unhandledrejection", (event) => {
+  const reason = event.reason;
+  const message = reason instanceof Error ? reason.message : "SAM worker promise failed";
+  workerScope.postMessage({
+    type: "error",
+    message,
+  } satisfies SamWorkerResponse);
+});
+
+self.addEventListener("error", (event) => {
+  workerScope.postMessage({
+    type: "error",
+    message: event.message || "SAM worker failed",
+  } satisfies SamWorkerResponse);
+});

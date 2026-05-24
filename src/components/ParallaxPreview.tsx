@@ -36,10 +36,15 @@ export function ParallaxPreview({ scrollOffset }: ParallaxPreviewProps) {
   const mode = useLayerStore((state) => state.mode);
   const background = useLayerStore((state) => state.background);
   const layers = useLayerStore((state) => state.layers);
+  const selection = useLayerStore((state) => state.selection);
   const visibleLayers = layers.filter((layer) => layer.visible).sort((left, right) => left.order - right.order);
   const maskUrls = useMemo(
     () => new Map(layers.filter((layer) => layer.mask).map((layer) => [layer.id, maskToDataUrl(layer.mask!)])),
     [layers],
+  );
+  const selectionMaskUrl = useMemo(
+    () => (selection.mask ? maskToDataUrl(selection.mask) : ''),
+    [selection.mask],
   );
   const [pointer, setPointer] = useState({ x: 0, y: 0 });
 
@@ -142,6 +147,26 @@ export function ParallaxPreview({ scrollOffset }: ParallaxPreviewProps) {
             </div>
           );
         })}
+      {mode === 'edit' && selectionMaskUrl && (
+        <div
+          className="sam-mask-preview"
+          style={{
+            backgroundImage: `url("${selectionMaskUrl}")`,
+            backgroundSize: '100% 100%',
+          }}
+        />
+      )}
+      {mode === 'edit' &&
+        selection.points.map((point) => (
+          <span
+            key={point.id}
+            className={`sam-point${point.type === 'negative' ? ' negative' : ''}`}
+            style={{
+              left: `${point.x * 100}%`,
+              top: `${point.y * 100}%`,
+            }}
+          />
+        ))}
     </motion.div>
   );
 }

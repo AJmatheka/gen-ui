@@ -254,6 +254,8 @@ export function initLegacyApp() {
       busy: false,
       loaded: false,
       requestId: 0,
+      currentRequestId: "",
+      timeoutId: 0,
       points: [],
       mask: null,
       maskUrl: "",
@@ -373,7 +375,8 @@ export function initLegacyApp() {
     }
 
     function addSamLayer() {
-      if (!sam.mask || !sam.maskUrl || !parallax.imageUrl) return;
+      if (!sam.mask || !parallax.imageUrl) return;
+      const maskUrl = sam.maskUrl || maskToUrl(sam.mask.data, sam.mask.width, sam.mask.height);
 
       const name = `SAM Layer ${parallax.layers.length + 1}`;
       const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random());
@@ -388,7 +391,7 @@ export function initLegacyApp() {
         opacity: 0.95,
         blurOnDepth: true,
         color: palette[parallax.layers.length % palette.length],
-        maskUrl: sam.maskUrl
+        maskUrl
       });
       useLayerStore.getState().addLayer({
         id,
@@ -428,25 +431,49 @@ export function initLegacyApp() {
       if (sam.worker) return sam.worker;
 
       sam.worker = new SamWorker();
+      sam.worker.addEventListener("error", event => {
+        clearSamBusy();
+        setSamStatus(event.message || "SAM worker failed.", true);
+        updateSamControls();
+      });
+      sam.worker.addEventListener("messageerror", () => {
+        clearSamBusy();
+        setSamStatus("SAM worker returned unreadable data.", true);
+        updateSamControls();
+      });
       sam.worker.addEventListener("message", event => {
         const data = event.data;
 
+        if (data.type === "status") {
+          setSamStatus(data.message || "SAM working...");
+          return;
+        }
+
         if (data.type === "ready") {
           sam.loaded = true;
-          sam.busy = false;
-          setSamStatus("SAM ready. Click image to select object.");
+          if (!sam.currentRequestId || !sam.busy) {
+            sam.busy = false;
+            window.clearTimeout(sam.timeoutId);
+            setSamStatus("SAM ready. Click image to select object.");
+          } else {
+            setSamStatus("SAM ready. Segmenting object...");
+          }
           updateSamControls();
           return;
         }
 
         if (data.type === "mask") {
+          if (data.id && data.id !== sam.currentRequestId) return;
           sam.busy = false;
+          sam.currentRequestId = "";
+          window.clearTimeout(sam.timeoutId);
           sam.mask = {
             id: data.id || `mask-${Date.now()}`,
             width: data.width,
             height: data.height,
             data: data.mask
           };
+          sam.maskUrl = maskToUrl(sam.mask.data, sam.mask.width, sam.mask.height);
           sam.score = data.score;
           useLayerStore.getState().setSelectionMask(sam.mask);
           useLayerStore.getState().setSelectionBusy(false);
@@ -458,7 +485,10 @@ export function initLegacyApp() {
         }
 
         if (data.type === "error") {
+          if (data.id && sam.currentRequestId && data.id !== sam.currentRequestId) return;
           sam.busy = false;
+          sam.currentRequestId = "";
+          window.clearTimeout(sam.timeoutId);
           useLayerStore.getState().setSelectionError(data.message);
           setSamStatus(data.message || "SAM failed.", true);
           updateSamControls();
@@ -469,6 +499,13 @@ export function initLegacyApp() {
       setSamStatus("Loading SAM model...");
       updateSamControls();
       return sam.worker;
+    }
+
+    function clearSamBusy() {
+      sam.busy = false;
+      sam.currentRequestId = "";
+      window.clearTimeout(sam.timeoutId);
+      useLayerStore.getState().setSelectionBusy(false);
     }
 
     function maskToUrl(mask, width, height) {
@@ -490,25 +527,9 @@ export function initLegacyApp() {
     }
 
     function renderSamPreview() {
-      pStage.querySelectorAll(".sam-mask-preview,.sam-point").forEach(el => el.remove());
-
       if (sam.mask) {
         sam.maskUrl = maskToUrl(sam.mask.data, sam.mask.width, sam.mask.height);
-        const preview = document.createElement("div");
-        preview.className = "sam-mask-preview";
-        preview.style.backgroundImage = `url("${sam.maskUrl}")`;
-        preview.style.backgroundSize = "100% 100%";
-        pStage.append(preview);
       }
-
-      const rect = pStage.getBoundingClientRect();
-      sam.points.forEach(point => {
-        const marker = document.createElement("span");
-        marker.className = `sam-point${point.label === 0 ? " negative" : ""}`;
-        marker.style.left = `${point.x * rect.width}px`;
-        marker.style.top = `${point.y * rect.height}px`;
-        pStage.append(marker);
-      });
     }
 
     function resetSamSelection() {
@@ -530,6 +551,7 @@ export function initLegacyApp() {
 
       const worker = ensureSamWorker();
       const id = `sam-${++sam.requestId}`;
+      sam.currentRequestId = id;
       sam.busy = true;
       useLayerStore.getState().setSelectionBusy(true);
       useLayerStore.getState().setSelectionPoints(sam.points.map(point => ({
@@ -540,6 +562,13 @@ export function initLegacyApp() {
       })));
       setSamStatus(sam.loaded ? "Segmenting object..." : "Loading SAM model...");
       updateSamControls();
+      window.clearTimeout(sam.timeoutId);
+      sam.timeoutId = window.setTimeout(() => {
+        if (sam.currentRequestId !== id || !sam.busy) return;
+        clearSamBusy();
+        setSamStatus("SAM timed out. Try a smaller image or reload model.", true);
+        updateSamControls();
+      }, sam.loaded ? 90000 : 180000);
       worker.postMessage({
         type: "segment",
         id,
