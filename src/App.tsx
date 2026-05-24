@@ -1,6 +1,41 @@
+import { useState } from 'react';
+import { LayerPanel } from './components/LayerPanel';
+import { ParallaxPreview } from './components/ParallaxPreview';
 import { Upload } from './components/Upload';
+import { useLayerStore } from './store/layers';
 
 export function App() {
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const mode = useLayerStore((state) => state.mode);
+  const background = useLayerStore((state) => state.background);
+  const layers = useLayerStore((state) => state.layers);
+  const selection = useLayerStore((state) => state.selection);
+  const setMode = useLayerStore((state) => state.setMode);
+  const addLayer = useLayerStore((state) => state.addLayer);
+  const clearLayers = useLayerStore((state) => state.clearLayers);
+  const hasBackground = Boolean(background.src);
+  const hasSelection = Boolean(selection.mask || selection.points.length);
+
+  function addFullImageLayer() {
+    if (!background.src) return;
+
+    addLayer({
+      name: `Layer ${layers.length + 1}`,
+      image: background.image,
+      src: background.src,
+      width: background.width,
+      height: background.height,
+      sourceRect: {
+        x: 0,
+        y: 0,
+        width: background.width,
+        height: background.height,
+      },
+      depth: 0.5,
+      opacity: 0.9,
+    });
+  }
+
   return (
     <main className="app-shell overflow-x-hidden w-full max-w-full">
       <header className="site-header" id="top">
@@ -137,29 +172,78 @@ export function App() {
               <h2>Layers</h2>
               <div className="toolbar">
                 <Upload />
-                <button id="selectMode" className="active" type="button">
+                <button
+                  id="selectMode"
+                  className={mode === 'edit' ? 'active' : ''}
+                  type="button"
+                  onClick={() => setMode('edit')}
+                >
                   Select
                 </button>
-                <button id="previewMode" type="button">
+                <button
+                  id="previewMode"
+                  className={mode === 'preview' ? 'active' : ''}
+                  type="button"
+                  onClick={() => setMode('preview')}
+                >
                   Preview
                 </button>
                 <button id="exportParallax" type="button" disabled>
                   Copy Embed
                 </button>
               </div>
-              <div id="layersList" className="layers-list" />
+              <div className="sam-panel" aria-label="Object selection">
+                <div className="sam-controls">
+                  <button id="samSelect" type="button" disabled={!hasBackground || selection.isBusy}>
+                    SAM Select
+                  </button>
+                  <button id="samNegative" type="button" disabled={!hasBackground || selection.isBusy}>
+                    Exclude
+                  </button>
+                  <button id="commitSamLayer" type="button" disabled={!hasBackground || selection.isBusy || !selection.mask}>
+                    Commit Mask
+                  </button>
+                  <button id="clearSamSelection" type="button" disabled={!hasBackground || selection.isBusy || !hasSelection}>
+                    Clear Mask
+                  </button>
+                </div>
+                <p id="samStatus" className="hint" role="status" aria-live="polite">
+                  Upload image to select objects.
+                </p>
+              </div>
+              <div id="layersList" className="layers-list">
+                <LayerPanel />
+              </div>
               <div className="layer-actions">
-                <button id="addWholeLayer" type="button" disabled>
+                <button
+                  id="addWholeLayer"
+                  type="button"
+                  disabled={!background.src}
+                  onClick={addFullImageLayer}
+                >
                   Add full layer
                 </button>
-                <button id="clearLayers" className="danger" type="button" disabled>
+                <button
+                  id="clearLayers"
+                  className="danger"
+                  type="button"
+                  disabled={!layers.length}
+                  onClick={() => clearLayers()}
+                >
                   Clear
                 </button>
               </div>
               <div className="panel-controls">
                 <label>
-                  Scroll <span id="scrollReadout">0</span>
-                  <input id="scrollSim" type="range" min="-300" max="300" defaultValue="0" />
+                  Scroll <span id="scrollReadout">{scrollOffset}</span>
+                  <input
+                    id="scrollSim"
+                    type="range"
+                    min="-300"
+                    max="300"
+                    value={scrollOffset}
+                    onChange={(event) => setScrollOffset(Number(event.target.value))}
+                  />
                 </label>
               </div>
             </aside>
@@ -169,12 +253,16 @@ export function App() {
                 Selection needs desktop pointer input.
               </div>
               <div className="parallax-shell">
-                <div id="parallaxStage" className="parallax-stage empty">
-                  <span>
-                    <strong>Drop image</strong>
-                    <br />
-                    Draw rectangles to create depth layers.
-                  </span>
+                <div
+                  id="parallaxStage"
+                  className={`parallax-stage${background.src ? '' : ' empty'}`}
+                  style={
+                    background.src
+                      ? { aspectRatio: `${background.width} / ${background.height}`, minHeight: 0 }
+                      : undefined
+                  }
+                >
+                  <ParallaxPreview scrollOffset={scrollOffset} />
                 </div>
               </div>
               <div className="embed-box">

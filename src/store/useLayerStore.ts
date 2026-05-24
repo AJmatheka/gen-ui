@@ -20,6 +20,7 @@ export type BackgroundLayer = {
   id: 'background';
   name: string;
   image: HTMLImageElement | ImageBitmap | ImageData | null;
+  src: string;
   width: number;
   height: number;
   mask: MaskPayload | null;
@@ -30,10 +31,18 @@ export type ObjectLayer = {
   id: string;
   name: string;
   image: HTMLImageElement | ImageBitmap | ImageData | null;
+  src: string;
   width: number;
   height: number;
+  sourceRect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null;
   mask: MaskPayload | null;
   depth: number;
+  opacity: number;
   visible: boolean;
   order: number;
 };
@@ -49,10 +58,13 @@ export type AddLayerInput = {
   id?: string;
   name?: string;
   image: ObjectLayer['image'];
+  src?: string;
   width: number;
   height: number;
+  sourceRect?: ObjectLayer['sourceRect'];
   mask?: MaskPayload | null;
   depth?: number;
+  opacity?: number;
   visible?: boolean;
 };
 
@@ -67,8 +79,14 @@ export type LayerStoreState = {
 export type LayerStoreActions = {
   setMode: (mode: EditorMode) => void;
   toggleMode: () => void;
-  setBackground: (image: BackgroundLayer['image'], width: number, height: number) => void;
+  setBackground: (
+    image: BackgroundLayer['image'],
+    width: number,
+    height: number,
+    src?: string,
+  ) => void;
   clearProject: () => void;
+  clearLayers: () => void;
   addLayer: (input: AddLayerInput) => string;
   renameLayer: (layerId: string, name: string) => void;
   deleteLayer: (layerId: string) => void;
@@ -76,6 +94,7 @@ export type LayerStoreActions = {
   toggleLayerVisibility: (layerId: string) => void;
   reorderLayer: (layerId: string, toIndex: number) => void;
   setLayerDepth: (layerId: string, depth: number) => void;
+  setLayerOpacity: (layerId: string, opacity: number) => void;
   setLayerMask: (layerId: string, mask: MaskPayload | null) => void;
   setActiveLayer: (layerId: string | null) => void;
   setSelectionPoints: (points: SelectionPoint[]) => void;
@@ -99,6 +118,7 @@ const emptyBackground = (): BackgroundLayer => ({
   id: 'background',
   name: 'Layer 0',
   image: null,
+  src: '',
   width: 0,
   height: 0,
   mask: null,
@@ -106,6 +126,7 @@ const emptyBackground = (): BackgroundLayer => ({
 });
 
 const clampDepth = (depth: number) => Math.min(2, Math.max(0.1, depth));
+const clampOpacity = (opacity: number) => Math.min(1, Math.max(0, opacity));
 
 const normalizeLayerOrder = (layers: ObjectLayer[]) =>
   layers.map((layer, index) => ({
@@ -135,11 +156,12 @@ export const useLayerStore = create<LayerStore>()((set) => ({
       mode: state.mode === 'edit' ? 'preview' : 'edit',
     })),
 
-  setBackground: (image, width, height) =>
+  setBackground: (image, width, height, src = '') =>
     set({
       background: {
         ...emptyBackground(),
         image,
+        src,
         width,
         height,
       },
@@ -158,6 +180,13 @@ export const useLayerStore = create<LayerStore>()((set) => ({
       mode: 'edit',
     }),
 
+  clearLayers: () =>
+    set({
+      layers: [],
+      activeLayerId: null,
+      selection: emptySelection(),
+    }),
+
   addLayer: (input) => {
     const id = input.id ?? createId('layer');
 
@@ -166,10 +195,13 @@ export const useLayerStore = create<LayerStore>()((set) => ({
         id,
         name: input.name ?? `Layer ${state.layers.length + 1}`,
         image: input.image,
+        src: input.src ?? state.background.src,
         width: input.width,
         height: input.height,
+        sourceRect: input.sourceRect ?? null,
         mask: input.mask ?? null,
         depth: clampDepth(input.depth ?? 1),
+        opacity: clampOpacity(input.opacity ?? 1),
         visible: input.visible ?? true,
         order: state.layers.length,
       };
@@ -234,6 +266,13 @@ export const useLayerStore = create<LayerStore>()((set) => ({
     set((state) => ({
       layers: state.layers.map((layer) =>
         layer.id === layerId ? { ...layer, depth: clampDepth(depth) } : layer,
+      ),
+    })),
+
+  setLayerOpacity: (layerId, opacity) =>
+    set((state) => ({
+      layers: state.layers.map((layer) =>
+        layer.id === layerId ? { ...layer, opacity: clampOpacity(opacity) } : layer,
       ),
     })),
 

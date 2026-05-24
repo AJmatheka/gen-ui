@@ -453,6 +453,11 @@ canvas {
   text-align: center;
 }
 
+.react-parallax-preview {
+  position: absolute;
+  inset: 0;
+}
+
 .base-img,
 .parallax-layer {
   position: absolute;
@@ -525,6 +530,10 @@ canvas {
   background: var(--bg);
 }
 
+.layer-card.active {
+  border-color: var(--line-strong);
+}
+
 .layer-head {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr) auto auto auto;
@@ -580,6 +589,51 @@ textarea {
   display: grid;
   gap: 12px;
   margin-top: 16px;
+}
+
+.sam-panel {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.sam-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.sam-controls button {
+  width: 100%;
+}
+
+.sam-mask-preview {
+  position: absolute;
+  inset: 0;
+  z-index: 900;
+  pointer-events: none;
+  opacity: 0.45;
+  mix-blend-mode: multiply;
+}
+
+.sam-point {
+  position: absolute;
+  z-index: 920;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--bg);
+  border-radius: 999px;
+  background: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.sam-point.negative {
+  background: var(--danger);
+  box-shadow: 0 0 0 1px var(--danger);
 }
 
 .hidden {
@@ -643,7 +697,8 @@ textarea {
   .two-up,
   .control-grid,
   .editor-rail .toolbar,
-  .panel .toolbar {
+  .panel .toolbar,
+  .sam-controls {
     grid-template-columns: 1fr;
   }
 

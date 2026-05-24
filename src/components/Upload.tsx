@@ -25,7 +25,7 @@ export function Upload({ inputId = 'parallaxFile', onImageReady }: UploadProps) 
   const inputRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<UploadState>(idleState);
 
-  async function handleFile(file: File | undefined, notifyLegacy = false) {
+  async function handleFile(file: File | undefined) {
     if (!file) return;
 
     setState((current) => ({ ...current, error: '', loading: true }));
@@ -35,11 +35,9 @@ export function Upload({ inputId = 'parallaxFile', onImageReady }: UploadProps) 
       setState({ image, error: '', dragging: false, loading: false });
       onImageReady?.(image);
 
-      if (notifyLegacy) {
-        window.dispatchEvent(
-          new CustomEvent('genui:parallax-upload', { detail: { file, image } }),
-        );
-      }
+      window.dispatchEvent(
+        new CustomEvent('genui:parallax-upload', { detail: { file, image } }),
+      );
     } catch (error) {
       setState({
         image: null,
@@ -52,7 +50,7 @@ export function Upload({ inputId = 'parallaxFile', onImageReady }: UploadProps) 
 
   function handleDrop(event: React.DragEvent<HTMLDivElement>) {
     event.preventDefault();
-    handleFile(event.dataTransfer.files?.[0], true);
+    handleFile(event.dataTransfer.files?.[0]);
   }
 
   const status = state.image

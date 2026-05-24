@@ -2,6 +2,8 @@
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { loadCanvasReadyImage } from './utils/image';
+import { useLayerStore } from './store/layers';
+import SamWorker from './workers/sam.worker?worker';
 
 window.gsap = gsap;
 gsap.registerPlugin(ScrollTrigger);
@@ -245,6 +247,18 @@ export function initLegacyApp() {
       scrollOffset: 0,
       orientation: { x: 0, y: 0 }
     };
+    const sam = {
+      worker: null,
+      active: false,
+      negative: false,
+      busy: false,
+      loaded: false,
+      requestId: 0,
+      points: [],
+      mask: null,
+      maskUrl: "",
+      score: null
+    };
 
     const pStage = $("parallaxStage");
     const coarsePointer = matchMedia("(pointer: coarse)").matches;
@@ -269,35 +283,55 @@ export function initLegacyApp() {
       };
     }
 
-    function loadParallax(file) {
-      readImage(file, (img, data, original) => {
-        parallax.imageUrl = data;
-        parallax.fileName = original.name;
-        parallax.fileSize = original.size;
-        parallax.imageNaturalWidth = img.naturalWidth;
-        parallax.imageNaturalHeight = img.naturalHeight;
-        parallax.layers = [];
-        pStage.classList.remove("empty");
-        pStage.innerHTML = "";
-        pStage.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
-        pStage.style.minHeight = "0";
-        const base = document.createElement("img");
-        base.className = "base-img";
-        base.src = data;
-        base.alt = "";
-        pStage.append(base);
-        setParallaxMode("select");
-        updateParallaxControls();
-        renderLayers();
-        setStatus($("parallaxStatus"), `${original.name} loaded.`);
-        updateSizeWarning();
-      });
+    function setParallaxBackground(image) {
+      if (!image) return;
+
+      resetSamSelection();
+      parallax.imageUrl = image.dataUrl;
+      parallax.fileName = image.file.name;
+      parallax.fileSize = image.file.size;
+      parallax.imageNaturalWidth = image.width;
+      parallax.imageNaturalHeight = image.height;
+      parallax.layers = [];
+      useLayerStore.getState().setBackground(image.imageData, image.width, image.height, image.dataUrl);
+      pStage.classList.remove("empty");
+      pStage.style.aspectRatio = `${image.width} / ${image.height}`;
+      pStage.style.minHeight = "0";
+      setParallaxMode("select");
+      updateParallaxControls();
+      renderLayers();
+      setStatus($("parallaxStatus"), `${image.file.name} loaded.`);
+      updateSizeWarning();
     }
 
-    window.addEventListener("genui:parallax-upload", event => loadParallax(event.detail.file));
+    async function loadParallax(file) {
+      if (!file || !file.type.startsWith("image/")) return;
+      const image = await loadCanvasReadyImage(file);
+      setParallaxBackground(image);
+    }
+
+    function loadParallaxUpload(event) {
+      if (event.detail?.image) {
+        setParallaxBackground(event.detail.image);
+        return;
+      }
+
+      loadParallax(event.detail?.file);
+    }
+
+    window.addEventListener("genui:parallax-upload", loadParallaxUpload);
+
+    /*
+      Kept for stage drops only. The React Upload component owns the #parallaxFile
+      input and dispatches genui:parallax-upload with the decoded image payload.
+    */
+    function loadParallaxFromStageDrop(file) {
+      loadParallax(file);
+    }
 
     function setParallaxMode(mode) {
       parallax.mode = mode;
+      useLayerStore.getState().setMode(mode === "preview" ? "preview" : "edit");
       $("selectMode").classList.toggle("active", mode === "select");
       $("previewMode").classList.toggle("active", mode === "preview");
       renderLayers();
@@ -305,6 +339,22 @@ export function initLegacyApp() {
 
     function addLayer(rect) {
       const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random());
+      useLayerStore.getState().addLayer({
+        id,
+        name: `Layer ${useLayerStore.getState().layers.length + 1}`,
+        image: null,
+        src: parallax.imageUrl,
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        sourceRect: {
+          x: Math.round(rect.x),
+          y: Math.round(rect.y),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height)
+        },
+        depth: 0.5,
+        opacity: 0.9
+      });
       parallax.layers.unshift({
         id,
         name: `Layer ${parallax.layers.length + 1}`,
@@ -322,69 +372,204 @@ export function initLegacyApp() {
       updateParallaxControls();
     }
 
-    function renderLayers() {
-      if (!parallax.imageUrl) return;
-      pStage.querySelectorAll(".parallax-layer,.selection,.draw-rect").forEach(el => el.remove());
-      [...parallax.layers].reverse().forEach((layer, index) => {
-        const box = naturalToDisplay(layer);
-        const piece = document.createElement("div");
-        piece.className = "parallax-layer";
-        piece.dataset.id = layer.id;
-        piece.style.left = `${box.x}px`;
-        piece.style.top = `${box.y}px`;
-        piece.style.width = `${box.width}px`;
-        piece.style.height = `${box.height}px`;
-        piece.style.inset = "auto";
-        piece.style.backgroundImage = `url("${parallax.imageUrl}")`;
-        piece.style.backgroundSize = `${pStage.clientWidth}px ${pStage.clientHeight}px`;
-        piece.style.backgroundPosition = `-${box.x}px -${box.y}px`;
-        piece.style.opacity = layer.opacity;
-        piece.style.zIndex = String(20 + index);
-        piece.style.filter = layer.blurOnDepth && Math.abs(layer.depth) > 1 ? `blur(${Math.min(2, Math.abs(layer.depth) - 0.5)}px)` : "none";
-        pStage.append(piece);
+    function addSamLayer() {
+      if (!sam.mask || !sam.maskUrl || !parallax.imageUrl) return;
 
-        if (parallax.mode === "select") {
-          const marker = document.createElement("div");
-          marker.className = "selection";
-          marker.style.left = `${box.x}px`;
-          marker.style.top = `${box.y}px`;
-          marker.style.width = `${box.width}px`;
-          marker.style.height = `${box.height}px`;
-          marker.style.color = layer.color;
-          marker.style.zIndex = String(100 + index);
-          marker.innerHTML = `<span>${escapeHtml(layer.name)}</span>`;
-          pStage.append(marker);
+      const name = `SAM Layer ${parallax.layers.length + 1}`;
+      const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random());
+      parallax.layers.unshift({
+        id,
+        name,
+        x: 0,
+        y: 0,
+        width: parallax.imageNaturalWidth,
+        height: parallax.imageNaturalHeight,
+        depth: 0.8,
+        opacity: 0.95,
+        blurOnDepth: true,
+        color: palette[parallax.layers.length % palette.length],
+        maskUrl: sam.maskUrl
+      });
+      useLayerStore.getState().addLayer({
+        id,
+        name,
+        image: useLayerStore.getState().background.image,
+        src: parallax.imageUrl,
+        width: parallax.imageNaturalWidth,
+        height: parallax.imageNaturalHeight,
+        mask: sam.mask,
+        depth: 0.8,
+        opacity: 0.95
+      });
+      resetSamSelection();
+      renderLayers();
+      renderLayerPanel();
+      updateParallaxControls();
+      setStatus($("parallaxStatus"), "Mask committed as layer.");
+    }
+
+    function setSamStatus(message, isError = false) {
+      const status = $("samStatus");
+      status.textContent = message;
+      status.className = isError ? "warn" : "hint";
+    }
+
+    function updateSamControls() {
+      const hasImage = Boolean(parallax.imageUrl);
+      $("samSelect").disabled = !hasImage || sam.busy;
+      $("samNegative").disabled = !hasImage || sam.busy || !sam.active;
+      $("commitSamLayer").disabled = !hasImage || sam.busy || !sam.mask;
+      $("clearSamSelection").disabled = !hasImage || sam.busy || (!sam.mask && !sam.points.length);
+      $("samSelect").classList.toggle("active", sam.active && !sam.negative);
+      $("samNegative").classList.toggle("active", sam.active && sam.negative);
+    }
+
+    function ensureSamWorker() {
+      if (sam.worker) return sam.worker;
+
+      sam.worker = new SamWorker();
+      sam.worker.addEventListener("message", event => {
+        const data = event.data;
+
+        if (data.type === "ready") {
+          sam.loaded = true;
+          sam.busy = false;
+          setSamStatus("SAM ready. Click image to select object.");
+          updateSamControls();
+          return;
+        }
+
+        if (data.type === "mask") {
+          sam.busy = false;
+          sam.mask = {
+            id: data.id || `mask-${Date.now()}`,
+            width: data.width,
+            height: data.height,
+            data: data.mask
+          };
+          sam.score = data.score;
+          useLayerStore.getState().setSelectionMask(sam.mask);
+          useLayerStore.getState().setSelectionBusy(false);
+          renderSamPreview();
+          const percent = typeof data.score === "number" ? ` ${(data.score * 100).toFixed(0)}%` : "";
+          setSamStatus(`Mask ready.${percent}`);
+          updateSamControls();
+          return;
+        }
+
+        if (data.type === "error") {
+          sam.busy = false;
+          useLayerStore.getState().setSelectionError(data.message);
+          setSamStatus(data.message || "SAM failed.", true);
+          updateSamControls();
         }
       });
-      applyParallax();
+      sam.worker.postMessage({ type: "load", id: "sam-load" });
+      sam.busy = true;
+      setSamStatus("Loading SAM model...");
+      updateSamControls();
+      return sam.worker;
+    }
+
+    function maskToUrl(mask, width, height) {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      const image = ctx.createImageData(width, height);
+      for (let index = 0; index < mask.length; index += 1) {
+        const offset = index * 4;
+        const alpha = mask[index];
+        image.data[offset] = 17;
+        image.data[offset + 1] = 17;
+        image.data[offset + 2] = 17;
+        image.data[offset + 3] = alpha;
+      }
+      ctx.putImageData(image, 0, 0);
+      return canvas.toDataURL("image/png");
+    }
+
+    function renderSamPreview() {
+      pStage.querySelectorAll(".sam-mask-preview,.sam-point").forEach(el => el.remove());
+
+      if (sam.mask) {
+        sam.maskUrl = maskToUrl(sam.mask.data, sam.mask.width, sam.mask.height);
+        const preview = document.createElement("div");
+        preview.className = "sam-mask-preview";
+        preview.style.backgroundImage = `url("${sam.maskUrl}")`;
+        preview.style.backgroundSize = "100% 100%";
+        pStage.append(preview);
+      }
+
+      const rect = pStage.getBoundingClientRect();
+      sam.points.forEach(point => {
+        const marker = document.createElement("span");
+        marker.className = `sam-point${point.label === 0 ? " negative" : ""}`;
+        marker.style.left = `${point.x * rect.width}px`;
+        marker.style.top = `${point.y * rect.height}px`;
+        pStage.append(marker);
+      });
+    }
+
+    function resetSamSelection() {
+      sam.points = [];
+      sam.mask = null;
+      sam.maskUrl = "";
+      sam.score = null;
+      useLayerStore.getState().resetSelection();
+      if (pStage) {
+        pStage.querySelectorAll(".sam-mask-preview,.sam-point").forEach(el => el.remove());
+      }
+      if ($("samStatus")) setSamStatus(parallax.imageUrl ? "Click SAM Select, then click object." : "Upload image to select objects.");
+      updateSamControls();
+    }
+
+    function requestSamMask() {
+      const background = useLayerStore.getState().background;
+      if (!background.image || !("data" in background.image) || !sam.points.length) return;
+
+      const worker = ensureSamWorker();
+      const id = `sam-${++sam.requestId}`;
+      sam.busy = true;
+      useLayerStore.getState().setSelectionBusy(true);
+      useLayerStore.getState().setSelectionPoints(sam.points.map(point => ({
+        id: `point-${point.x}-${point.y}-${point.label}-${id}`,
+        x: point.x,
+        y: point.y,
+        type: point.label === 0 ? "negative" : "positive"
+      })));
+      setSamStatus(sam.loaded ? "Segmenting object..." : "Loading SAM model...");
+      updateSamControls();
+      worker.postMessage({
+        type: "segment",
+        id,
+        imageData: {
+          data: new Uint8ClampedArray(background.image.data),
+          width: background.width,
+          height: background.height
+        },
+        clicks: sam.points
+      });
+    }
+
+    function addSamPoint(event) {
+      const rect = pStage.getBoundingClientRect();
+      sam.points.push({
+        x: clamp((event.clientX - rect.left) / rect.width, 0, 1),
+        y: clamp((event.clientY - rect.top) / rect.height, 0, 1),
+        label: sam.negative ? 0 : 1
+      });
+      renderSamPreview();
+      requestSamMask();
+    }
+
+    function renderLayers() {
+      pStage.querySelectorAll(".draw-rect").forEach(el => el.remove());
+      renderSamPreview();
     }
 
     function renderLayerPanel() {
-      const list = $("layersList");
-      list.innerHTML = "";
-      if (!parallax.layers.length) {
-        list.innerHTML = `<p class="hint">No layers yet. Draw rectangles on image.</p>`;
-        return;
-      }
-      parallax.layers.forEach((layer, index) => {
-        const card = document.createElement("div");
-        card.className = "layer-card";
-        card.innerHTML = `
-          <div class="layer-head">
-            <span class="swatch" style="--c:${layer.color}"></span>
-            <input type="text" value="${escapeHtml(layer.name)}" data-action="name" aria-label="Layer name">
-            <button class="icon-btn" type="button" data-action="up" title="Move up">↑</button>
-            <button class="icon-btn" type="button" data-action="down" title="Move down">↓</button>
-            <button class="icon-btn danger" type="button" data-action="delete" title="Delete">×</button>
-          </div>
-          <div class="mini-row"><label>Depth<input type="range" min="-2" max="2" step="0.1" value="${layer.depth}" data-action="depth"></label><span>${layer.depth.toFixed(1)}</span></div>
-          <div class="mini-row"><label>Opacity<input type="range" min="0.5" max="1" step="0.05" value="${layer.opacity}" data-action="opacity"></label><span>${Math.round(layer.opacity * 100)}%</span></div>
-          <label class="check-row"><input type="checkbox" data-action="blur" ${layer.blurOnDepth ? "checked" : ""}> Blur on depth</label>
-        `;
-        card.addEventListener("input", event => updateLayerFromControl(layer.id, event.target, card));
-        card.addEventListener("click", event => handleLayerButton(layer.id, event.target.dataset.action));
-        list.append(card);
-      });
+      return;
     }
 
     function updateLayerFromControl(id, target, card) {
@@ -431,7 +616,7 @@ export function initLegacyApp() {
       const hasImage = Boolean(parallax.imageUrl);
       $("exportParallax").disabled = !hasImage;
       $("addWholeLayer").disabled = !hasImage;
-      $("clearLayers").disabled = !parallax.layers.length;
+      $("clearLayers").disabled = !useLayerStore.getState().layers.length;
       renderLayerPanel();
     }
 
@@ -442,24 +627,25 @@ export function initLegacyApp() {
     }
 
     function buildParallaxSnippet() {
-      const layers = parallax.layers.map(layer => ({
+      const snapshot = useLayerStore.getState();
+      const layers = snapshot.layers.map(layer => ({
         name: layer.name,
-        x: layer.x,
-        y: layer.y,
-        width: layer.width,
-        height: layer.height,
+        x: layer.sourceRect?.x ?? 0,
+        y: layer.sourceRect?.y ?? 0,
+        width: layer.sourceRect?.width ?? layer.width,
+        height: layer.sourceRect?.height ?? layer.height,
         depth: layer.depth,
         opacity: layer.opacity,
-        blurOnDepth: layer.blurOnDepth
+        blurOnDepth: true,
+        maskUrl: layer.mask ? maskToUrl(layer.mask.data, layer.mask.width, layer.mask.height) : ""
       }));
-      const image = parallax.imageUrl;
-      const width = parallax.imageNaturalWidth;
-      const height = parallax.imageNaturalHeight;
-      return `<!-- genui parallax image embed -->\n<div class="genui-parallax" style="position:relative;overflow:hidden;width:100%;max-width:${width}px;aspect-ratio:${width}/${height};margin:0 auto;background:#111;">\n  <img src="${image}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:fill;">\n</div>\n<script>(()=>{const root=document.currentScript.previousElementSibling,img=${JSON.stringify(image)},natural={w:${width},h:${height}},layers=${JSON.stringify(layers)};let mx=0,my=0,scroll=0;layers.slice().reverse().forEach((l,i)=>{const d=document.createElement("div");d.style.cssText="position:absolute;overflow:hidden;pointer-events:none;background-repeat:no-repeat;will-change:transform;transition:transform .1s ease-out;";d.dataset.i=i;root.append(d)});function draw(){const r=root.getBoundingClientRect();layers.slice().reverse().forEach((l,i)=>{const d=root.querySelector('[data-i="'+i+'"]'),x=l.x/natural.w*r.width,y=l.y/natural.h*r.height,w=l.width/natural.w*r.width,h=l.height/natural.h*r.height;d.style.left=x+"px";d.style.top=y+"px";d.style.width=w+"px";d.style.height=h+"px";d.style.backgroundImage='url("'+img+'")';d.style.backgroundSize=r.width+"px "+r.height+"px";d.style.backgroundPosition=-x+"px "+-y+"px";d.style.opacity=l.opacity;d.style.filter=l.blurOnDepth&&Math.abs(l.depth)>1?"blur("+Math.min(2,Math.abs(l.depth)-.5)+"px)":"none";d.style.transform="translate("+(mx*l.depth*28)+"px,"+((my*l.depth*28)+(scroll*l.depth*.3))+"px)"})}root.addEventListener("mousemove",e=>{const r=root.getBoundingClientRect();mx=((e.clientX-r.left)-r.width/2)/(r.width/2);my=((e.clientY-r.top)-r.height/2)/(r.height/2);draw()});addEventListener("scroll",()=>{scroll=scrollY;draw()},{passive:true});addEventListener("resize",draw);draw()})();<\/script>`;
+      const image = snapshot.background.src;
+      const width = snapshot.background.width;
+      const height = snapshot.background.height;
+      return `<!-- genui parallax image embed -->\n<div class="genui-parallax" style="position:relative;overflow:hidden;width:100%;max-width:${width}px;aspect-ratio:${width}/${height};margin:0 auto;background:#111;">\n  <img src="${image}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:fill;">\n</div>\n<script>(()=>{const root=document.currentScript.previousElementSibling,img=${JSON.stringify(image)},natural={w:${width},h:${height}},layers=${JSON.stringify(layers)};let mx=0,my=0,scroll=0;layers.slice().reverse().forEach((l,i)=>{const d=document.createElement("div");d.style.cssText="position:absolute;overflow:hidden;pointer-events:none;background-repeat:no-repeat;will-change:transform;transition:transform .1s ease-out;";d.dataset.i=i;root.append(d)});function draw(){const r=root.getBoundingClientRect();layers.slice().reverse().forEach((l,i)=>{const d=root.querySelector('[data-i="'+i+'"]'),masked=!!l.maskUrl,x=masked?0:l.x/natural.w*r.width,y=masked?0:l.y/natural.h*r.height,w=masked?r.width:l.width/natural.w*r.width,h=masked?r.height:l.height/natural.h*r.height;d.style.left=x+"px";d.style.top=y+"px";d.style.width=w+"px";d.style.height=h+"px";d.style.backgroundImage='url("'+img+'")';d.style.backgroundSize=masked?r.width+"px "+r.height+"px":r.width+"px "+r.height+"px";d.style.backgroundPosition=masked?"0 0":-x+"px "+-y+"px";d.style.opacity=l.opacity;d.style.filter=l.blurOnDepth&&Math.abs(l.depth)>1?"blur("+Math.min(2,Math.abs(l.depth)-.5)+"px)":"none";d.style.maskImage=l.maskUrl?'url("'+l.maskUrl+'")':"";d.style.maskSize=l.maskUrl?"100% 100%":"";d.style.webkitMaskImage=d.style.maskImage;d.style.webkitMaskSize=d.style.maskSize;d.style.transform="translate("+(mx*l.depth*28)+"px,"+((my*l.depth*28)+(scroll*l.depth*.3))+"px)"})}root.addEventListener("mousemove",e=>{const r=root.getBoundingClientRect();mx=((e.clientX-r.left)-r.width/2)/(r.width/2);my=((e.clientY-r.top)-r.height/2)/(r.height/2);draw()});addEventListener("scroll",()=>{scroll=scrollY;draw()},{passive:true});addEventListener("resize",draw);draw()})();<\/script>`;
     }
 
-    $("parallaxFile").addEventListener("change", event => loadParallax(event.target.files[0]));
-    bindDrop(pStage, file => loadParallax(file));
+    bindDrop(pStage, loadParallaxFromStageDrop);
     $("selectMode").addEventListener("click", () => setParallaxMode("select"));
     $("previewMode").addEventListener("click", () => setParallaxMode("preview"));
     $("scrollSim").addEventListener("input", () => {
@@ -467,9 +653,9 @@ export function initLegacyApp() {
       $("scrollReadout").textContent = String(parallax.scrollOffset);
       applyParallax();
     });
-    $("addWholeLayer").addEventListener("click", () => addLayer({ x: 0, y: 0, width: parallax.imageNaturalWidth, height: parallax.imageNaturalHeight }));
     $("clearLayers").addEventListener("click", () => {
       parallax.layers = [];
+      useLayerStore.getState().clearLayers();
       renderLayers();
       updateParallaxControls();
     });
@@ -483,8 +669,30 @@ export function initLegacyApp() {
         setStatus($("parallaxStatus"), "Snippet generated.");
       }
     });
+    $("samSelect").addEventListener("click", () => {
+      if (!parallax.imageUrl) return;
+      sam.active = !sam.active || sam.negative;
+      sam.negative = false;
+      setParallaxMode("select");
+      if (sam.active) ensureSamWorker();
+      setSamStatus(sam.active ? "Click object to create mask." : "SAM selection paused.");
+      updateSamControls();
+    });
+    $("samNegative").addEventListener("click", () => {
+      if (!parallax.imageUrl) return;
+      sam.active = true;
+      sam.negative = !sam.negative;
+      setSamStatus(sam.negative ? "Click areas to exclude." : "Click object to include.");
+      updateSamControls();
+    });
+    $("commitSamLayer").addEventListener("click", addSamLayer);
+    $("clearSamSelection").addEventListener("click", resetSamSelection);
     pStage.addEventListener("pointerdown", event => {
       if (!parallax.imageUrl || parallax.mode !== "select" || coarsePointer) return;
+      if (sam.active) {
+        addSamPoint(event);
+        return;
+      }
       const scale = stageScale();
       parallax.isDrawing = true;
       parallax.drawStart = { x: (event.clientX - scale.rect.left) * scale.x, y: (event.clientY - scale.rect.top) * scale.y };
